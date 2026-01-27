@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: 'Inter', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .gradient-bg {
+    @apply bg-gradient-to-br from-purple-600 to-pink-600;
+  }
+  
+  .glass-effect {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20;
+  }
+  
+  .severity-badge-critical {
+    @apply bg-gradient-to-r from-red-600 to-red-700 text-white;
+  }
+  
+  .severity-badge-high {
+    @apply bg-gradient-to-r from-orange-500 to-orange-600 text-white;
+  }
+  
+  .severity-badge-medium {
+    @apply bg-gradient-to-r from-yellow-500 to-yellow-600 text-white;
+  }
+  
+  .severity-badge-low {
+    @apply bg-gradient-to-r from-purple-500 to-purple-600 text-white;
+  }
+  
+  .severity-badge-info {
+    @apply bg-gradient-to-r from-blue-500 to-blue-600 text-white;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent;
+  }
+}

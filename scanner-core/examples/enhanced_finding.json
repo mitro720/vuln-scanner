@@ -1,0 +1,32 @@
+{
+    "name": "SQL Injection",
+    "vulnerability_type": "sql_injection",
+    "url": "https://example.com/api/users?id=1",
+    "cwe_id": "CWE-89",
+    "cwe_name": "SQL Injection",
+    "cwe_url": "https://cwe.mitre.org/data/definitions/89.html",
+    "owasp_category": "A03:2021",
+    "cvss_score": 9.8,
+    "cvss_severity": "Critical",
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "confidence": 95,
+    "technique": "Boolean-based blind",
+    "parameter": "id",
+    "method": "GET",
+    "evidence": {
+        "payload": "1' AND '1'='1",
+        "baseline_length": 1234,
+        "response_length": 5678
+    },
+    "poc": "curl -X GET \"https://example.com/api/users?id=1' AND '1'='1\"",
+    "remediation": "Use parameterized queries or prepared statements",
+    "remediation_steps": [
+        "Use parameterized queries or prepared statements",
+        "Implement input validation and sanitization",
+        "Apply principle of least privilege to database accounts",
+        "Use ORM frameworks with built-in protection"
+    ],
+    "discovered_at": "2026-01-26T12:00:00.000Z",
+    "status": "open",
+    "cve_ids": []
+}

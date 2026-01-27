@@ -1,0 +1,25 @@
+{
+    "name": "vulnerability-scanner",
+    "version": "1.0.0",
+    "description": "Advanced Web Vulnerability Scanner",
+    "scripts": {
+        "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\" \"npm run start:scanner\"",
+        "start:backend": "cd backend && npm run dev",
+        "start:frontend": "cd frontend && npm run dev",
+        "start:scanner": "cd scanner-core && python api_bridge.py",
+        "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../scanner-core && pip install -r requirements.txt",
+        "build": "cd frontend && npm run build",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    },
+    "keywords": [
+        "security",
+        "vulnerability-scanner",
+        "owasp",
+        "penetration-testing"
+    ],
+    "author": "",
+    "license": "MIT"
+}
