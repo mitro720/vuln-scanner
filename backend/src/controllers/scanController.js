@@ -51,7 +51,7 @@ export const getScanById = async (req, res, next) => {
 // Create new scan
 export const createScan = async (req, res, next) => {
     try {
-        const { target_url, scan_type, config } = req.body
+        const { target_url, scan_type, config, phase } = req.body
 
         if (!target_url) {
             throw new AppError('Target URL is required', 400)
@@ -65,13 +65,13 @@ export const createScan = async (req, res, next) => {
         }
 
         // Create scan record directly with target_url (no target record needed)
-        console.log('📝 Creating scan record in database...', { target_url, scan_type, config })
+        console.log('📝 Creating scan record in database...', { target_url, scan_type, config, phase })
         const { data: scanData, error: scanError } = await supabase
             .from('scans')
             .insert({
                 target_url: target_url,
                 status: 'pending',
-                scan_type: scan_type || 'full',
+                scan_type: phase ? `modular:${phase}` : (scan_type || 'full'),
                 config: config || {},
                 progress: 0,
             })
@@ -91,7 +91,8 @@ export const createScan = async (req, res, next) => {
                 body: JSON.stringify({
                     scan_id: scanData.id,
                     target_url: target_url,
-                    config: config || {}
+                    config: config || {},
+                    phase: phase || 'all'
                 })
             })
 
@@ -125,6 +126,47 @@ export const createScan = async (req, res, next) => {
         res.status(201).json({
             success: true,
             data: scanData,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+// Stop an active scan
+export const stopScan = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        console.log(`🛑 Requesting stop for scan: ${id}`)
+        
+        try {
+            const scannerResponse = await fetch(`http://localhost:8000/scan/stop/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+
+            if (!scannerResponse.ok) {
+                const errorText = await scannerResponse.text()
+                console.error('❌ Failed to stop Python scanner:', errorText)
+                // We still update the DB if the scanner is unreachable or returns error
+            }
+        } catch (error) {
+            console.error('❌ Error notifying scanner bridge:', error.message)
+        }
+
+        // Update scan status in database
+        const { data, error } = await supabase
+            .from('scans')
+            .update({ status: 'stopped' })
+            .eq('id', id)
+            .select()
+            .single()
+
+        if (error) throw new AppError(error.message, 400)
+
+        res.json({
+            success: true,
+            data,
         })
     } catch (error) {
         next(error)

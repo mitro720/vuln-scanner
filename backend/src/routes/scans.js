@@ -7,6 +7,7 @@ import {
     deleteScan,
     getScanFindings,
     getScanStats,
+    stopScan,
 } from '../controllers/scanController.js'
 import { scanLimiter } from '../middleware/rateLimiter.js'
 
@@ -19,5 +20,6 @@ router.post('/', scanLimiter, createScan)
 router.put('/:id', updateScan)
 router.delete('/:id', deleteScan)
 router.get('/:id/findings', getScanFindings)
+router.post('/:id/stop', stopScan)
 
 export default router

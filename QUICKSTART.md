@@ -219,11 +219,8 @@ Check if all services are running:
    - Select scan type
    - Start scanning!
 
-3. **Explore Knowledge Base**
-   - Click "Knowledge" in navigation
-   - Learn about vulnerabilities
-   - View code examples
-   - Access learning resources
+3. **View Project Capabilities**
+   - Read [CAPABILITIES.md](file:///g:/project%20ii/vulnerability-scanner/CAPABILITIES.md) for a full feature list.
 
 ---
 
