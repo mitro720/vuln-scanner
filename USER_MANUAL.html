@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureScan - User Training Manual</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Calibri, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 10px;
+            text-align: center;
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 30px;
+            border-bottom: 1px solid #ddd;
+        }
+        h3 {
+            color: #2980b9;
+        }
+        .procedural-step {
+            margin-bottom: 20px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        blockquote {
+            background: #f9f9f9;
+            border-left: 10px solid #ccc;
+            margin: 1.5em 10px;
+            padding: 0.5em 10px;
+            quotes: "\201C""\201D""\2018""\2019";
+        }
+        .glossary-term {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .footer {
+            margin-top: 50px;
+            font-size: 0.8em;
+            text-align: center;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+<p style="text-align: center; font-weight: bold;">School of Technology</p>
+<p style="text-align: center; font-weight: bold;">Final Year Project II</p>
+
+<h1>SecureScan - User Training Manual</h1>
+<p style="text-align: center; font-style: italic;">A comprehensive guide to effectively using the SecureScan Vulnerability Scanner.</p>
+
+<p style="text-align: center; font-weight: bold;">Copyright © 2026 The SecureScan Team.</p>
+<p style="text-align: center; font-size: 0.9em;">All rights reserved. No part of this publication may be reproduced, distributed, or transmitted in any form without the prior written permission of the publisher.</p>
+
+<div style="border: 1px solid #ccc; padding: 15px; margin: 20px 0;">
+    <h3>Disclaimer</h3>
+    <p><i>The SecureScan software is provided "as is", without warranty of any kind. This tool is designed for authorized educational and professional security testing only. Do not use this software against any network or application you do not own or possess explicit permission to scan.</i></p>
+</div>
+
+<hr>
+
+<h2>Preface</h2>
+<p>Welcome to the SecureScan User Training Manual. This guide is designed to help non-technical users, IT Administrators, and Security Professionals understand and operate the SecureScan web application efficiently. Whether you are running your first vulnerability scan or analyzing a complex attack surface graph, this guide will walk you through each procedural step.</p>
+
+<p><strong>How to use this guide:</strong></p>
+<ul>
+    <li>Use the <strong>Table of Contents</strong> to navigate to specific procedures.</li>
+    <li>Terms in <i>italics</i> are defined in the Glossary at the back of this manual.</li>
+    <li>Screenshots are provided for visual reference during key tasks.</li>
+</ul>
+
+<hr>
+
+<h2>Table of Contents</h2>
+<ol>
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#procedures">Procedures & How-To's</a></li>
+    <li><a href="#advanced-features">Advanced Features</a></li>
+    <li><a href="#reference-materials">Reference Materials</a></li>
+    <li><a href="#glossary">Glossary</a></li>
+</ol>
+
+<hr>
+
+<h2 id="introduction">1. Introduction</h2>
+<p>SecureScan is a modern vulnerability scanning framework featuring automated reconnaissance, endpoint discovery, and high-speed vulnerability detection using open-source engines like subfinder, httpx, katana, and nuclei. This system allows you to scan domains, map out the architecture, and identify critical security flaws—all from a sleek, dark-mode <i>glassmorphism</i> dashboard.</p>
+
+<h3>Target Audience</h3>
+<p>This manual is tailored for users who need to interact with SecureScan's web interface to initiate security tests and interpret the results. No complex command-line experience is required, though basic networking knowledge is helpful.</p>
+
+<hr>
+
+<h2 id="getting-started">2. Getting Started</h2>
+<p>To get started with SecureScan, ensure your environment is running. The system starts via Docker containers (Frontend, Backend, and Scanner Core). Once running, open your web browser (e.g., Firefox, Chrome) and navigate to the SecureScan dashboard.</p>
+
+<blockquote>
+    <p><strong>Input:</strong> <code>http://localhost:5173/</code> in your browser's address bar.</p>
+    <p><strong>Output:</strong> The SecureScan Dashboard overview displays your total scans, findings, and active schedules.</p>
+</blockquote>
+
+<p><i>(Screenshot: SecureScan Dashboard)</i></p>
+<img src="./docs/screenshots/dashboard.png" alt="SecureScan Dashboard">
+
+<hr>
+
+<h2 id="procedures">3. Procedures & How-To's</h2>
+<p>This section breaks down the major functionalities of SecureScan into actionable, step-by-step tasks.</p>
+
+<h3>How to Start a New Scan</h3>
+<p>SecureScan uses a 3-step wizard to guide you through scan configuration.</p>
+<ol>
+    <li>Navigate to the <strong>New Scan</strong> page using the left-hand menu.</li>
+    <li><strong>Step 1: Targets</strong>
+        <ul>
+            <li>Enter your target URL (e.g., <code>http://testphp.vulnweb.com/</code>).</li>
+            <li><i>If</i> you want to enable Subdomain Enumeration or WAF Detection, click the toggle switches.</li>
+            <li>Click <strong>Next</strong>.</li>
+        </ul>
+    </li>
+</ol>
+
+<p><i>(Screenshot: Configuring a Target)</i></p>
+<img src="./docs/screenshots/new_scan.png" alt="New Scan Target">
+
+<ol start="3">
+    <li><strong>Step 2: Scanner Configuration</strong>
+        <ul>
+            <li>Select the attack modules you want to execute (e.g., "SQL Injection", "XSS", "A01: Access Control").</li>
+            <li>Click <strong>Next</strong>.</li>
+        </ul>
+    </li>
+    <li><strong>Step 3: Execution</strong>
+        <ul>
+            <li>Review your selected configuration.</li>
+            <li>Click <strong>Start Scan</strong> and press [ENTER].</li>
+        </ul>
+    </li>
+</ol>
+
+<p><i>The system will automatically redirect you to the Live Scan page where you can monitor real-time progress.</i></p>
+
+<h3>How to View Scan Progress</h3>
+<p>When a scan is running, it sequentially moves through Reconnaissance, Crawling, and Vulnerability analysis.</p>
+
+<ol>
+    <li>Watch the <strong>Phase Indicators</strong> at the top of the monitor. The active phase will pulse dynamically.</li>
+</ol>
+
+<p><i>(Screenshot: Active Reconnaissance Phase)</i></p>
+<img src="./docs/screenshots/live_scan_recon.png" alt="Live Scan Recon Phase">
+
+<ol start="2">
+    <li>Click the <strong>Recon</strong> tab to view discovered IP addresses, server architecture, and open ports.</li>
+    <li>Click the <strong>Vulnerabilities</strong> tab to review security flaws as they are discovered in real-time.</li>
+</ol>
+
+<p><i>(Screenshot: Live Vulnerability Detection)</i></p>
+<img src="./docs/screenshots/live_scan_vulns.png" alt="Live Scan Vulnerabilities">
+
+<p>4. <i>If</i> you need to halt the process, press the <strong>Stop Process</strong> button in the top corner. <i>If you choose "Stop Process", the scan will terminate safely and save partial results.</i></p>
+
+<h3>How to Explore the Attack Surface Map</h3>
+<p>The Attack Surface map visualizes the website's structure using interactive crawler data.</p>
+<ol>
+    <li>Navigate to <strong>Attack Surface</strong> on the sidebar.</li>
+    <li>Enter the target URL into the input field.</li>
+    <li>Click the <strong>Crawl</strong> button.</li>
+</ol>
+
+<p><i>(Screenshot: Attack Surface Crawl Configuration)</i></p>
+<img src="./docs/screenshots/attack_surface.png" alt="Attack Surface Map">
+
+<p>4. Wait for the mapping sequence to complete. The tool will display a connected node graph.</p>
+
+<h3>How to View Scan History</h3>
+<ol>
+    <li>Navigate to the <strong>History</strong> tab to see previously executed scans.</li>
+    <li>Locate the desired scan in the table. Information such as Start Time, Status (<code>Completed</code>, <code>Failed</code>, <code>Interrupted</code>), and Target URL are visible.</li>
+</ol>
+
+<p><i>(Screenshot: Scan History View)</i></p>
+<img src="./docs/screenshots/history.png" alt="Scan History">
+
+<ol start="3">
+    <li>Click <strong>View Details</strong> next to an entry to reload that historic scan's data.</li>
+    <li>Click the <strong>Trash Can</strong> icon to delete a record permanently.</li>
+</ol>
+
+<hr>
+
+<h2 id="advanced-features">4. Advanced Features</h2>
+
+<h3>AI Assistant Integration</h3>
+<p>SecureScan features a flexible AI assistant that supports multiple providers (OpenAI, Anthropic, Google, and Ollama).</p>
+<ol>
+    <li>Navigate to <strong>Settings</strong> → <strong>AI Assistant</strong>.</li>
+    <li>Select your preferred provider and enter your API key.</li>
+    <li>During a scan, use the <strong>Ask AI</strong> button next to any finding to get a plain English explanation and remediation advice.</li>
+</ol>
+
+<h3>Custom Payload System</h3>
+<p>Advanced users can add their own attack vectors by modifying the files in <code>scanner-core/payloads/</code>.</p>
+<ul>
+    <li>Supported formats: <code>.txt</code> (one per line) and <code>.json</code> (structured metadata).</li>
+    <li>Payloads are automatically merged with default vectors during the vulnerability phase.</li>
+</ul>
+
+<h3>CVE Database & Service Detection</h3>
+<p>The scanner automatically performs service version detection and matches identified products against the NIST National Vulnerability Database (NVD).</p>
+<ul>
+    <li>Discovered CVEs include CVSS scores, severity levels, and links to vendor advisories.</li>
+</ul>
+
+<hr>
+
+<h2 id="reference-materials">5. Reference Materials</h2>
+
+<h3>Frequently Asked Questions</h3>
+<p><strong>Q: What does the "Smart Crawl" do?</strong><br>
+A: It intelligently routes requests to avoid duplicate scanning loops in the backend, saving time during the Discovery phase.</p>
+
+<p><strong>Q: Can I close the browser while a scan runs?</strong><br>
+A: Yes! SecureScan's backend runs asynchronously. You can close your browser window, return later, and check the <strong>History</strong> tab to see the final results.</p>
+
+<h3>Troubleshooting & Error Messages</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Message</th>
+            <th>Meaning</th>
+            <th>Resolution</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>Scanner core unreachable</code></td>
+            <td>The Node.js backend cannot speak to the Python Engine.</td>
+            <td>Check if the <code>scanner-core</code> Docker container has stopped.</td>
+        </tr>
+        <tr>
+            <td><code>0 Nodes Found</code></td>
+            <td>The crawler was blocked or you requested a site with no sub-pages.</td>
+            <td>Ensure the target is reachable, and you do not have a trailing hash (<code>#</code>) in the URL.</td>
+        </tr>
+        <tr>
+            <td><code>Could not load crawl graph</code></td>
+            <td>You navigated to an Attack Surface map for an empty scan.</td>
+            <td>Run a new crawl or wait for the discovery phase to finalize.</td>
+        </tr>
+    </tbody>
+</table>
+
+<hr>
+
+<h2 id="glossary">6. Glossary</h2>
+<ul>
+    <li><span class="glossary-term">Attack Surface:</span> The sum of the different points (the "attack vectors") where an unauthorized user can try to enter data to or extract data from an environment.</li>
+    <li><span class="glossary-term">CVE:</span> Common Vulnerabilities and Exposures. A list of publicly disclosed computer security flaws.</li>
+    <li><span class="glossary-term">CVSS:</span> Common Vulnerability Scoring System. A numerical score reflecting the severity of a vulnerability.</li>
+    <li><span class="glossary-term">Katana:</span> The fast web crawler used by SecureScan to map out pages and forms.</li>
+    <li><span class="glossary-term">Nuclei:</span> The template-based vulnerability scanner engine handling the heavy lifting of the vulnerability phase.</li>
+    <li><span class="glossary-term">Reconnaissance (Recon):</span> The preliminary phase of scanning where the tool gathers server headers, status codes, and IP data before attacking.</li>
+    <li><span class="glossary-term">Root Node:</span> The starting point or home page of your target URL in the Attack Surface graph.</li>
+</ul>
+
+<div class="footer">
+    <p>Built with &hearts; for the security community</p>
+</div>
+
+</body>
+</html>
