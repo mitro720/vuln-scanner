@@ -3,47 +3,58 @@
  */
 import supabase from '../config/supabase.js'
 
-const PYTHON_BRIDGE = 'http://localhost:8000'
+const PYTHON_BRIDGE = process.env.SCANNER_API_URL || 'http://localhost:8000'
 
+const isUUID = (str) => {
+    const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    return regex.test(str)
+}
 
 /* ── POST /api/crawl ──────────────────────────────────────────────────────── */
 export const startCrawl = async (req, res, next) => {
     try {
-        const { target_url, max_depth = 3, max_pages = 150, scan_id } = req.body
+        const { target_url, max_depth = 3, max_pages = 150 } = req.body
+        let { scan_id } = req.body
+        
         if (!target_url) return res.status(400).json({ error: 'target_url is required' })
 
-        // Use AbortController for timeout (native fetch doesn't support timeout option)
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 180_000) // 3 min
+        // Validate UUID to prevent DB crashes (e.g. crawl-fix-v-final)
+        if (scan_id && !isUUID(scan_id)) {
+            console.warn('⚠️  Invalid UUID for scan_id received:', scan_id)
+            scan_id = null 
+        }
 
-        let pyRes
-        try {
-            pyRes = await fetch(`${PYTHON_BRIDGE}/crawl`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target_url, max_depth, max_pages }),
-                signal: controller.signal,
-            })
-        } catch (fetchErr) {
-            clearTimeout(timeoutId)
-            if (fetchErr.name === 'AbortError') {
-                return res.status(504).json({ error: 'Crawler timed out after 3 minutes' })
+        // Check if data is already provided (from scanner bridge)
+        let graph = req.body.nodes ? req.body : null
+
+        if (!graph) {
+            // Initiate a new crawl via Python bridge
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 180_000) // 3 min
+
+            try {
+                const pyRes = await fetch(`${PYTHON_BRIDGE}/crawl`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_url, max_depth, max_pages }),
+                    signal: controller.signal,
+                })
+
+                if (!pyRes.ok) {
+                    const txt = await pyRes.text()
+                    clearTimeout(timeoutId)
+                    return res.status(502).json({ error: 'Python crawler failed', detail: txt })
+                }
+                graph = await pyRes.json()
+            } catch (fetchErr) {
+                if (fetchErr.name === 'AbortError') throw new Error('Crawler timed out after 3 minutes')
+                throw fetchErr
+            } finally {
+                clearTimeout(timeoutId)
             }
-            return res.status(503).json({
-                error: 'Python scanner is not running. Start it with: cd scanner-core && python api_bridge.py',
-                detail: fetchErr.message,
-            })
-        }
-        clearTimeout(timeoutId)
-
-        if (!pyRes.ok) {
-            const txt = await pyRes.text()
-            return res.status(502).json({ error: 'Python crawler failed', detail: txt })
         }
 
-        const graph = await pyRes.json()
-
-        // Persist graph to Supabase (upsert so re-crawling updates)
+        // Persist graph to Supabase
         const record = {
             target_url,
             scan_id: scan_id || null,
@@ -54,9 +65,15 @@ export const startCrawl = async (req, res, next) => {
             crawled_at: new Date().toISOString(),
         }
 
-        const { data, error } = await supabase
-            .from('crawl_graphs')
-            .insert(record)
+        let query = supabase.from('crawl_graphs')
+        if (scan_id) {
+            // Update existing or insert new
+            query = query.upsert(record, { onConflict: 'scan_id' })
+        } else {
+            query = query.insert(record)
+        }
+
+        const { data, error } = await query
             .select('id')
             .single()
 

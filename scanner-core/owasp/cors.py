@@ -8,8 +8,15 @@ from typing import List, Dict, Any
 
 
 class CORSModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # Test origins
         self.test_origins = [
@@ -26,7 +33,7 @@ class CORSModule:
         try:
             for origin in self.test_origins:
                 headers = {'Origin': origin}
-                response = requests.get(self.target_url, headers=headers, timeout=10)
+                response = self.http.get(self.target_url, headers=headers, timeout=10)
                 
                 acao = response.headers.get('Access-Control-Allow-Origin', '')
                 acac = response.headers.get('Access-Control-Allow-Credentials', '')
@@ -76,6 +83,14 @@ class CORSModule:
             
         return findings
         
-    def scan(self) -> List[Dict[str, Any]]:
-        """Scan for CORS misconfigurations"""
-        return self.test_cors()
+    def scan(self, urls=None) -> List[Dict[str, Any]]:
+        """Scan for CORS misconfigurations across all discovered URLs"""
+        all_findings = []
+        targets = urls if urls else [self.target_url]
+        for url in targets:
+            original = self.target_url
+            self.target_url = url
+            all_findings.extend(self.test_cors())
+            self.target_url = original
+        return all_findings
+

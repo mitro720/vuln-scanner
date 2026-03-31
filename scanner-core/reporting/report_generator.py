@@ -11,10 +11,12 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
 from reportlab.lib.units import inch
+import xml.sax.saxutils
 
 class ReportGenerator:
-    def __init__(self, output_dir: str = "reports"):
+    def __init__(self, output_dir: str = "reports", ai_assistant=None):
         self.output_dir = output_dir
+        self.ai_assistant = ai_assistant
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
             
@@ -83,12 +85,14 @@ class ReportGenerator:
         
         for i, finding in enumerate(findings, 1):
             # Finding Title
-            story.append(Paragraph(f"{i}. {finding.get('name')}", styles['Heading2']))
+            safe_name = xml.sax.saxutils.escape(str(finding.get('name', '')))
+            story.append(Paragraph(f"{i}. {safe_name}", styles['Heading2']))
             
             # Severity & URL
             meta_style = ParagraphStyle('Meta', parent=styles['Normal'], textColor=colors.gray)
             story.append(Paragraph(f"Severity: {finding.get('severity').upper()}", meta_style))
-            story.append(Paragraph(f"URL: {finding.get('url')}", meta_style))
+            safe_url = xml.sax.saxutils.escape(str(finding.get('url', '')))
+            story.append(Paragraph(f"URL: {safe_url}", meta_style))
             story.append(Spacer(1, 0.1*inch))
             
             # Evidence
@@ -100,8 +104,9 @@ class ReportGenerator:
                 evidence_text = str(evidence)
             
             # Simple code block style
+            safe_evidence = xml.sax.saxutils.escape(evidence_text)
             code_style = ParagraphStyle('Code', parent=styles['Code'], backColor=colors.lightgrey)
-            story.append(Paragraph(evidence_text, code_style))
+            story.append(Paragraph(safe_evidence, code_style))
             story.append(Spacer(1, 0.2*inch))
             
             # Remediation
@@ -109,11 +114,41 @@ class ReportGenerator:
             remedy = finding.get('remediation', 'No remediation provided.')
             if isinstance(remedy, list):
                 for r in remedy:
-                    story.append(Paragraph(f"• {r}", styles['Normal']))
+                    safe_r = xml.sax.saxutils.escape(str(r))
+                    story.append(Paragraph(f"• {safe_r}", styles['Normal']))
             else:
-                story.append(Paragraph(remedy, styles['Normal']))
+                safe_remedy = xml.sax.saxutils.escape(str(remedy))
+                story.append(Paragraph(safe_remedy, styles['Normal']))
                 
             story.append(Spacer(1, 0.3*inch))
+            
+            # AI Insight (if available)
+            if hasattr(self, 'ai_assistant') and self.ai_assistant:
+                try:
+                    story.append(Paragraph("🤖 AI Security Analysis:", styles['Heading3']))
+                    
+                    analysis = self.ai_assistant.analyze_vulnerability(finding)
+                    
+                    if analysis and analysis.get('explanation'):
+                        expl_safe = xml.sax.saxutils.escape(str(analysis['explanation']))
+                        story.append(Paragraph(f"<b>Explanation:</b> {expl_safe}", styles['Normal']))
+                        
+                    if analysis and analysis.get('exploitation_scenario'):
+                        exp_safe = xml.sax.saxutils.escape(str(analysis['exploitation_scenario']))
+                        story.append(Paragraph(f"<b>Exploitation Scenario:</b> {exp_safe}", styles['Normal']))
+                        
+                    remediation_ai = self.ai_assistant.suggest_remediation(finding)
+                    if remediation_ai and remediation_ai.get('code_fix'):
+                        story.append(Spacer(1, 0.1*inch))
+                        story.append(Paragraph("<b>AI Suggested Code Fix:</b>", styles['Normal']))
+                        code_fix_safe = xml.sax.saxutils.escape(str(remediation_ai['code_fix']))
+                        code_style = ParagraphStyle('CodeFix', parent=styles['Code'], backColor=colors.lightcyan)
+                        story.append(Spacer(1, 0.05*inch))
+                        story.append(Paragraph(code_fix_safe, code_style))
+                except Exception as e:
+                    story.append(Paragraph(f"<i>AI Analysis failed or timed out: {str(e)}</i>", styles['Normal']))
+
+                story.append(Spacer(1, 0.3*inch))
             
         doc.build(story)
         return filepath

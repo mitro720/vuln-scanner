@@ -33,10 +33,15 @@ LDAP_SUCCESS_SIGNS = [
 
 
 class LDAPInjectionModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
-        self.session = requests.Session()
-        self.session.headers.update({'User-Agent': 'SecureScan/1.0'})
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            self.http = requests.Session()
+            self.http.headers.update({'User-Agent': 'SecureScan/1.0'})
 
     def test_url(self, url: str) -> List[Dict[str, Any]]:
         findings = []
@@ -46,7 +51,7 @@ class LDAPInjectionModule:
             return findings
 
         try:
-            baseline = self.session.get(url, timeout=8)
+            baseline = self.http.get(url, timeout=8)
             baseline_len = len(baseline.text)
         except Exception:
             return findings
@@ -56,7 +61,7 @@ class LDAPInjectionModule:
                 test_params = {**{k: v[0] for k, v in params.items()}, param: payload}
                 test_url = urlunparse(parsed._replace(query=urlencode(test_params)))
                 try:
-                    resp = self.session.get(test_url, timeout=8)
+                    resp = self.http.get(test_url, timeout=8)
                     resp_lower = resp.text.lower()
 
                     # Check for LDAP error disclosure

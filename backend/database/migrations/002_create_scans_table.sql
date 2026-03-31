@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS scans (
   completed_at TIMESTAMP WITH TIME ZONE,
   config JSONB DEFAULT '{}'::jsonb,
   metadata JSONB DEFAULT '{}'::jsonb,
+  findings_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -15,8 +15,15 @@ from core.payload_loader import payload_loader
 
 
 class NoSQLInjectionModule:
-    def __init__(self, target_url: str, custom_payloads: List[str] = None):
+    def __init__(self, target_url: str, custom_payloads: List[str] = None, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # MongoDB injection payloads
         self.mongodb_payloads = [
@@ -48,7 +55,7 @@ class NoSQLInjectionModule:
         
         try:
             # Get baseline
-            baseline = requests.get(url, timeout=10)
+            baseline = self.http.get(url, timeout=10)
             baseline_length = len(baseline.text)
             
             # Test MongoDB operator injection
@@ -60,7 +67,7 @@ class NoSQLInjectionModule:
                 params[param] = [json.dumps(payload)]
                 test_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urlencode(params, doseq=True)}"
                 
-                response = requests.get(test_url, timeout=10)
+                response = self.http.get(test_url, timeout=10)
                 
                 # Check for different response
                 if abs(len(response.text) - baseline_length) > 100:
@@ -90,7 +97,7 @@ class NoSQLInjectionModule:
                 params[param] = [payload]
                 test_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urlencode(params, doseq=True)}"
                 
-                response = requests.get(test_url, timeout=10)
+                response = self.http.get(test_url, timeout=10)
                 
                 if abs(len(response.text) - baseline_length) > 100:
                     findings.append({

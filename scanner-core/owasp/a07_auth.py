@@ -8,8 +8,15 @@ from typing import List, Dict, Any
 
 
 class AuthModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # Common weak credentials
         self.weak_credentials = [
@@ -31,7 +38,7 @@ class AuthModule:
                     'password': password
                 }
                 
-                response = requests.post(login_url, data=data, timeout=10, allow_redirects=False)
+                response = self.http.post(login_url, data=data, timeout=10, allow_redirects=False)
                 
                 # Check for successful login indicators
                 if response.status_code in [200, 302] and 'error' not in response.text.lower():
@@ -61,7 +68,7 @@ class AuthModule:
         findings = []
         
         try:
-            response = requests.get(self.target_url, timeout=10)
+            response = self.http.get(self.target_url, timeout=10)
             
             for cookie in response.cookies:
                 issues = []

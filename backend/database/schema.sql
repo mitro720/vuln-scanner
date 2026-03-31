@@ -3,10 +3,21 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Users table (Custom authentication)
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username VARCHAR(255) UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  role VARCHAR(50) DEFAULT 'user',
+  status VARCHAR(50) DEFAULT 'pending', -- pending, active, suspended
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Targets table
 CREATE TABLE IF NOT EXISTS targets (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   url VARCHAR(500) NOT NULL,
   name VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -18,7 +29,7 @@ CREATE TABLE IF NOT EXISTS scans (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   target_id UUID REFERENCES targets(id) ON DELETE CASCADE,
   target_url VARCHAR(500), -- Direct URL for quick scans without target record
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, running, completed, failed
   scan_type VARCHAR(50) NOT NULL DEFAULT 'full', -- quick, full, custom
   progress INTEGER DEFAULT 0,
@@ -27,6 +38,7 @@ CREATE TABLE IF NOT EXISTS scans (
   completed_at TIMESTAMP WITH TIME ZONE,
   config JSONB DEFAULT '{}'::jsonb,
   metadata JSONB DEFAULT '{}'::jsonb,
+  findings_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -67,7 +79,7 @@ CREATE TABLE IF NOT EXISTS scan_comparisons (
 CREATE TABLE IF NOT EXISTS scheduled_scans (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   target_id UUID REFERENCES targets(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   cron_expression VARCHAR(100) NOT NULL,
   scan_type VARCHAR(50) NOT NULL DEFAULT 'full',
   config JSONB DEFAULT '{}'::jsonb,
@@ -117,54 +129,8 @@ CREATE TRIGGER update_findings_updated_at BEFORE UPDATE ON findings
 CREATE TRIGGER update_scheduled_scans_updated_at BEFORE UPDATE ON scheduled_scans
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Row Level Security (RLS) Policies
-ALTER TABLE targets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE scans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE findings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE scheduled_scans ENABLE ROW LEVEL SECURITY;
-
--- Targets policies
-CREATE POLICY "Users can view their own targets"
-  ON targets FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can create their own targets"
-  ON targets FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own targets"
-  ON targets FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own targets"
-  ON targets FOR DELETE
-  USING (auth.uid() = user_id);
-
--- Scans policies
-CREATE POLICY "Users can view their own scans"
-  ON scans FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can create their own scans"
-  ON scans FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own scans"
-  ON scans FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Findings policies (accessible through scans)
-CREATE POLICY "Users can view findings from their scans"
-  ON findings FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM scans
-      WHERE scans.id = findings.scan_id
-      AND scans.user_id = auth.uid()
-    )
-  );
-
--- Scheduled scans policies
-CREATE POLICY "Users can manage their scheduled scans"
-  ON scheduled_scans FOR ALL
-  USING (auth.uid() = user_id);
+-- Row Level Security (RLS) - Disabled for Custom Auth
+ALTER TABLE targets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE scans DISABLE ROW LEVEL SECURITY;
+ALTER TABLE findings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE scheduled_scans DISABLE ROW LEVEL SECURITY;

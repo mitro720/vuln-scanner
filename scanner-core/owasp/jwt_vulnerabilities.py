@@ -11,8 +11,15 @@ from typing import List, Dict, Any
 
 
 class JWTModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
     def test_jwt_vulnerabilities(self, token: str) -> List[Dict[str, Any]]:
         """Test JWT for common vulnerabilities"""
@@ -155,22 +162,18 @@ class JWTModule:
             
         return None
         
-    def scan(self) -> List[Dict[str, Any]]:
-        """Scan for JWT vulnerabilities"""
+    def scan(self, urls=None) -> List[Dict[str, Any]]:
+        """Scan for JWT vulnerabilities across all discovered URLs"""
         all_findings = []
-        
-        try:
-            # Try to get JWT from login endpoint
-            response = requests.get(self.target_url, timeout=10)
-            token = self.extract_jwt_from_response(response)
-            
-            if token:
-                findings = self.test_jwt_vulnerabilities(token)
-                all_findings.extend(findings)
-            else:
-                print("No JWT found in response")
-                
-        except Exception as e:
-            print(f"Error scanning JWT: {str(e)}")
-            
+        targets = urls if urls else [self.target_url]
+        for url in targets:
+            try:
+                response = self.http.get(url, timeout=10)
+                token = self.extract_jwt_from_response(response)
+                if token:
+                    findings = self.test_jwt_vulnerabilities(token)
+                    all_findings.extend(findings)
+            except Exception as e:
+                print(f"Error scanning JWT on {url}: {str(e)}")
         return all_findings
+

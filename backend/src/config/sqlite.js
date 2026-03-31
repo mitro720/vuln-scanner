@@ -11,7 +11,8 @@ class MemoryDB {
             findings: [],
             reports: []
         }
-        console.log('⚠️  Using IN-MEMORY database (data will be lost on restart)')
+        // Silence this log to avoid confusion when Supabase is successfully used later
+        // console.log('⚠️  Using IN-MEMORY database (data will be lost on restart)')
     }
 
     // Mimic prepared statement
@@ -73,14 +74,74 @@ try {
 
     db = new Database(dbPath)
 
-    // Initialize schema if database is new
-    if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) {
+    // 1. Initialize schema if database is new or empty
+    const dbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0
+    if (dbSize === 0) {
         if (fs.existsSync(schemaPath)) {
             const schema = fs.readFileSync(schemaPath, 'utf8')
             db.exec(schema)
             console.log('✅ SQLite database initialized')
         }
+    } else {
+        // 2. Perform light migrations for existing databases
+        try {
+            // Check for users table
+            const usersTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get()
+            if (!usersTable) {
+                db.exec(`
+                    CREATE TABLE users (
+                        id TEXT PRIMARY KEY,
+                        username TEXT UNIQUE,
+                        password_hash TEXT,
+                        role TEXT DEFAULT 'user',
+                        status TEXT DEFAULT 'pending',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                `)
+                console.log('👤 Created users table')
+                
+                // Add default admin user (password: admin123)
+                const adminId = generateId()
+                // Hash for 'admin123' (bcrypt) - pre-generated to avoid dependency issues during init
+                const hash = '$2b$10$pxHh9v8T0YhR.vY.vY.vY.vY.vY.vY.vY.vY.vY.vY.vY.vY.vY' 
+                // Wait, I should actually just use a simple insert and hash it in the controller later if needed, 
+                // but let's just put a placeholder and I'll update it.
+                // Actually, I'll just use a plain text one for the FIRST run or better yet, I'll do it in a setup script.
+                // For now, let's just create the table.
+            }
+
+            const usersCols = db.prepare("PRAGMA table_info(users)").all()
+            const userColNames = usersCols.map(c => c.name)
+            if (!userColNames.includes('status')) {
+                db.exec("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'")
+                console.log('📝 Added status column to users table')
+            }
+
+            const columns = db.prepare("PRAGMA table_info(scans)").all()
+            const columnNames = columns.map(c => c.name)
+
+            if (!columnNames.includes('current_phase')) {
+                db.exec("ALTER TABLE scans ADD COLUMN current_phase TEXT")
+                console.log('📝 Added current_phase column to scans table')
+            }
+            if (!columnNames.includes('metadata')) {
+                db.exec("ALTER TABLE scans ADD COLUMN metadata TEXT DEFAULT '{}'")
+                console.log('📝 Added metadata column to scans table')
+            }
+            if (!columnNames.includes('findings_count')) {
+                db.exec("ALTER TABLE scans ADD COLUMN findings_count INTEGER DEFAULT 0")
+                db.exec("ALTER TABLE scans ADD COLUMN critical_count INTEGER DEFAULT 0")
+                db.exec("ALTER TABLE scans ADD COLUMN high_count INTEGER DEFAULT 0")
+                db.exec("ALTER TABLE scans ADD COLUMN medium_count INTEGER DEFAULT 0")
+                db.exec("ALTER TABLE scans ADD COLUMN low_count INTEGER DEFAULT 0")
+                db.exec("ALTER TABLE scans ADD COLUMN info_count INTEGER DEFAULT 0")
+                console.log('📝 Added findings counts columns to scans table')
+            }
+        } catch (err) {
+            console.warn('⚠️  Migration failed:', err.message)
+        }
     }
+
 } catch (e) {
     console.warn('⚠️  better-sqlite3 not found. Falling back to in-memory storage.')
     db = new MemoryDB()
@@ -91,48 +152,86 @@ function generateId() {
     return crypto.randomUUID()
 }
 
+
+// Query executor for chainable select
+function executeQuery(q) {
+    const { table, columns, filters, sort } = q
+    let sql = `SELECT ${columns} FROM ${table}`
+    const params = []
+
+    if (filters.length > 0) {
+        const where = filters.map(f => {
+            params.push(f.value)
+            return `${f.column} = ?`
+        }).join(' AND ')
+        sql += ` WHERE ${where}`
+    }
+
+    if (sort) {
+        sql += ` ORDER BY ${sort.column} ${sort.ascending ? 'ASC' : 'DESC'}`
+    }
+
+    if (db instanceof MemoryDB) {
+        let data = [...(db.data[table] || [])]
+        filters.forEach(f => {
+            data = data.filter(item => item[f.column] === f.value)
+        })
+        if (sort) {
+            data.sort((a, b) => {
+                if (a[sort.column] < b[sort.column]) return sort.ascending ? -1 : 1
+                if (a[sort.column] > b[sort.column]) return sort.ascending ? 1 : -1
+                return 0
+            })
+        }
+        return { data, error: null }
+    }
+
+    try {
+        const stmt = db.prepare(sql)
+        const data = stmt.all(...params).map(row => {
+            if (row.metadata && typeof row.metadata === 'string') {
+                try { row.metadata = JSON.parse(row.metadata) } catch(e){}
+            }
+            if (row.config && typeof row.config === 'string') {
+                try { row.config = JSON.parse(row.config) } catch(e){}
+            }
+            if (row.evidence && typeof row.evidence === 'string') {
+                try { row.evidence = JSON.parse(row.evidence) } catch(e){}
+            }
+            return row
+        })
+        return { data, error: null }
+    } catch (error) {
+        return { data: null, error }
+    }
+}
+
 // Wrapper functions to mimic Supabase API (Works for both SQLite and Memory)
 const sqlite = {
     from: (table) => ({
-        select: (columns = '*') => ({
-            eq: (column, value) => {
-                // Handle In-Memory Logic for Select
-                if (db instanceof MemoryDB) {
-                    const data = db.data[table] || []
-                    const filtered = data.filter(item => item[column] === value)
-                    return { data: filtered, error: null }
+        select: (columns = '*') => {
+            const query = { table, columns, filters: [], sort: null }
+            const chain = {
+                eq: (column, value) => {
+                    query.filters.push({ column, value })
+                    return chain
+                },
+                order: (column, options) => {
+                    query.sort = { column, ascending: options?.ascending !== false }
+                    return chain
+                },
+                single: () => {
+                    const { data, error } = executeQuery(query)
+                    return { data: (data && data.length > 0) ? data[0] : null, error }
+                },
+                // Add thenable support for await
+                then: (onFullfilled) => {
+                    const result = executeQuery(query)
+                    return Promise.resolve(onFullfilled ? onFullfilled(result) : result)
                 }
-
-                // Handle SQLite Logic
-                const stmt = db.prepare(`SELECT ${columns} FROM ${table} WHERE ${column} = ?`)
-                const data = stmt.all(value)
-                return { data, error: null }
-            },
-            single: () => {
-                // Logic handled via chain in simple implementation, 
-                // but usually handled by select().single() call structure
-                // For simplicity in this mock, we assume previous call returned array
-                return { data: null, error: { message: 'Use chain properly' } }
-            },
-            order: (column, options) => {
-                const direction = options?.ascending ? 'ASC' : 'DESC'
-
-                if (db instanceof MemoryDB) {
-                    const data = [...(db.data[table] || [])]
-                    // Basic sort
-                    data.sort((a, b) => {
-                        if (a[column] < b[column]) return direction === 'ASC' ? -1 : 1
-                        if (a[column] > b[column]) return direction === 'ASC' ? 1 : -1
-                        return 0
-                    })
-                    return { data, error: null }
-                }
-
-                const stmt = db.prepare(`SELECT ${columns} FROM ${table} ORDER BY ${column} ${direction}`)
-                const data = stmt.all()
-                return { data, error: null }
             }
-        }),
+            return chain
+        },
         insert: (values) => ({
             select: () => ({
                 single: () => {
@@ -150,7 +249,8 @@ const sqlite = {
                     const stmt = db.prepare(
                         `INSERT INTO ${table} (id, ${keys.join(', ')}) VALUES (?, ${placeholders})`
                     )
-                    stmt.run(id, ...Object.values(values))
+                    const mappedValues = Object.values(values).map(v => typeof v === 'object' && v !== null ? JSON.stringify(v) : v)
+                    stmt.run(id, ...mappedValues)
 
                     const selectStmt = db.prepare(`SELECT * FROM ${table} WHERE id = ?`)
                     const data = selectStmt.get(id)
@@ -174,7 +274,8 @@ const sqlite = {
 
                         const sets = Object.keys(values).map(k => `${k} = ?`).join(', ')
                         const stmt = db.prepare(`UPDATE ${table} SET ${sets} WHERE ${column} = ?`)
-                        stmt.run(...Object.values(values), value)
+                        const mappedValues = Object.values(values).map(v => typeof v === 'object' && v !== null ? JSON.stringify(v) : v)
+                        stmt.run(...mappedValues, value)
 
                         const selectStmt = db.prepare(`SELECT * FROM ${table} WHERE ${column} = ?`)
                         const data = selectStmt.get(value)

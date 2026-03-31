@@ -14,8 +14,15 @@ from core.payload_loader import payload_loader
 
 
 class XXEModule:
-    def __init__(self, target_url: str, custom_payloads: List[str] = None):
+    def __init__(self, target_url: str, custom_payloads: List[str] = None, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # Default XXE payloads
         default_payloads = [
@@ -61,7 +68,7 @@ class XXEModule:
         
         try:
             for payload in self.payloads:
-                response = requests.post(url, data=payload, headers=headers, timeout=10)
+                response = self.http.post(url, data=payload, headers=headers, timeout=10)
                 
                 # Check for XXE indicators
                 for pattern in self.detection_patterns:

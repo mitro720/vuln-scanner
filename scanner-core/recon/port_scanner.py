@@ -36,8 +36,8 @@ class PortScanner:
             27017, # MongoDB
         ]
         
-    def scan_port(self, port: int, timeout: float = 1.0) -> Dict[str, Any]:
-        """Scan a single port"""
+    def scan_port(self, port: int, timeout: float = 1.0, detect_version: bool = True) -> Dict[str, Any]:
+        """Scan a single port with optional version detection"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
@@ -46,17 +46,37 @@ class PortScanner:
             
             if result == 0:
                 service = self._identify_service(port)
-                return {
+                port_info = {
                     'port': port,
                     'state': 'open',
                     'service': service
                 }
+                
+                # Add version detection if enabled
+                if detect_version:
+                    try:
+                        from cve.version_detector import VersionDetector
+                        detector = VersionDetector(timeout=timeout)
+                        version_info = detector.detect_version(self.target_host, port, service)
+                        
+                        if version_info.get('version'):
+                            port_info['version'] = version_info['version']
+                        if version_info.get('banner'):
+                            port_info['banner'] = version_info['banner']
+                        if version_info.get('product'):
+                            port_info['product'] = version_info['product']
+                    except Exception as e:
+                        # Version detection failed, continue without it
+                        pass
+                
+                return port_info
         except socket.gaierror:
             return None
         except socket.error:
             return None
             
         return None
+
         
     def _identify_service(self, port: int) -> str:
         """Identify common services by port"""
@@ -82,15 +102,18 @@ class PortScanner:
         }
         return services.get(port, 'Unknown')
         
-    def scan(self, ports: List[int] = None, max_workers: int = 50) -> Dict[str, Any]:
-        """Scan multiple ports concurrently"""
+    def scan(self, ports: List[int] = None, max_workers: int = 50, detect_version: bool = True) -> Dict[str, Any]:
+        """Scan multiple ports concurrently with optional version detection"""
         if ports is None:
             ports = self.common_ports
             
         open_ports = []
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_port = {executor.submit(self.scan_port, port): port for port in ports}
+            future_to_port = {
+                executor.submit(self.scan_port, port, 1.0, detect_version): port 
+                for port in ports
+            }
             
             for future in concurrent.futures.as_completed(future_to_port):
                 result = future.result()
@@ -103,6 +126,7 @@ class PortScanner:
             'total_scanned': len(ports),
             'total_open': len(open_ports)
         }
+
 
 if __name__ == "__main__":
     # Test

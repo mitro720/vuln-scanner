@@ -8,42 +8,95 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-dark-bg text-dark-text min-h-screen bg-gradient-primary bg-fixed antialiased selection:bg-primary-500/30 selection:text-white;
   }
 }
 
 @layer components {
-  .gradient-bg {
-    @apply bg-gradient-to-br from-purple-600 to-pink-600;
-  }
-  
+  /* High quality glassmorphism effect */
   .glass-effect {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20;
+    @apply bg-dark-surface/60 backdrop-blur-xl border border-white/5 shadow-2xl shadow-black/40 transition-all duration-300;
   }
   
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+  }
+
+  /* Vibrant Neons */
+  .neon-border {
+    @apply border border-primary-500/50 shadow-[0_0_15px_rgba(139,92,246,0.3)];
+  }
+
+  .gradient-bg {
+    @apply bg-gradient-accent text-white shadow-lg shadow-primary-600/30;
+  }
+
+  /* Sophisticated badging */
   .severity-badge-critical {
-    @apply bg-gradient-to-r from-red-600 to-red-700 text-white;
+    @apply bg-severity-critical/20 text-severity-critical border border-severity-critical/30 shadow-[0_0_10px_rgba(239,68,68,0.2)];
   }
-  
+
   .severity-badge-high {
-    @apply bg-gradient-to-r from-orange-500 to-orange-600 text-white;
+    @apply bg-severity-high/20 text-severity-high border border-severity-high/30 shadow-[0_0_10px_rgba(249,115,22,0.2)];
   }
-  
+
   .severity-badge-medium {
-    @apply bg-gradient-to-r from-yellow-500 to-yellow-600 text-white;
+    @apply bg-severity-medium/20 text-severity-medium border border-severity-medium/30 shadow-[0_0_10px_rgba(234,179,8,0.2)];
   }
-  
+
   .severity-badge-low {
-    @apply bg-gradient-to-r from-purple-500 to-purple-600 text-white;
+    @apply bg-severity-low/20 text-severity-low border border-severity-low/30 shadow-[0_0_10px_rgba(168,85,247,0.2)];
   }
-  
+
   .severity-badge-info {
-    @apply bg-gradient-to-r from-blue-500 to-blue-600 text-white;
+    @apply bg-severity-info/20 text-severity-info border border-severity-info/30 shadow-[0_0_10px_rgba(59,130,246,0.2)];
   }
 }
 
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-primary-400 to-indigo-400 bg-clip-text text-transparent;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes loading {
+    0% { transform: translateX(-100%); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+  }
+
+  .animate-loading {
+    animation: loading 1.5s ease-in-out infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideInFromBottom {
+    from { transform: translateY(1rem); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-in {
+    animation-duration: 500ms;
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: fadeIn;
+  }
+
+  .slide-in-from-bottom-4 {
+    animation-name: slideInFromBottom;
   }
 }

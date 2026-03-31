@@ -14,8 +14,15 @@ from core.payload_loader import payload_loader
 
 
 class CommandInjectionModule:
-    def __init__(self, target_url: str, custom_payloads: List[str] = None):
+    def __init__(self, target_url: str, custom_payloads: List[str] = None, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # Default command injection payloads
         default_payloads = [
@@ -63,7 +70,7 @@ class CommandInjectionModule:
         
         try:
             # Get baseline
-            baseline = requests.get(url, timeout=10)
+            baseline = self.http.get(url, timeout=10)
             baseline_length = len(baseline.text)
             
             for payload in self.payloads:
@@ -72,7 +79,7 @@ class CommandInjectionModule:
                 params[param] = [payload]
                 test_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urlencode(params, doseq=True)}"
                 
-                response = requests.get(test_url, timeout=15)
+                response = self.http.get(test_url, timeout=15)
                 
                 # Check for command output patterns
                 found_pattern = None

@@ -15,9 +15,16 @@ from core.payload_loader import payload_loader
 
 
 class IntensiveCommandInjectionScanner:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
         self.findings = []
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # Command injection separators
         self.separators = [';', '&&', '||', '|', '\n', '`', '$()']
@@ -66,7 +73,7 @@ class IntensiveCommandInjectionScanner:
                     
                     try:
                         start = time.time()
-                        response = requests.get(test_url, timeout=15)
+                        response = self.http.get(test_url, timeout=15)
                         elapsed = time.time() - start
                         
                         # Check if delay occurred (~5 seconds)
@@ -89,20 +96,21 @@ class IntensiveCommandInjectionScanner:
                                 "remediation": "Never pass user input to system commands. Use allowlists if absolutely necessary."
                             })
                             return findings  # Found one
-                    except requests.exceptions.Timeout:
-                        findings.append({
-                            "name": "Command Injection (Time-based - Timeout)",
-                            "severity": "critical",
-                            "owasp_category": "A03:2021",
-                            "url": url,
-                            "parameter": param,
-                            "confidence": 90,
-                            "technique": f"Time-based blind - Timeout ({os_name})",
-                            "evidence": {"payload": payload, "result": "Timeout"},
-                            "poc": f"curl '{test_url}'",
-                            "remediation": "Never pass user input to system commands"
-                        })
-                        return findings
+                    except (requests.exceptions.Timeout, Exception) as e:
+                        if "timeout" in str(e).lower():
+                            findings.append({
+                                "name": "Command Injection (Time-based - Timeout)",
+                                "severity": "critical",
+                                "owasp_category": "A03:2021",
+                                "url": url,
+                                "parameter": param,
+                                "confidence": 90,
+                                "technique": f"Time-based blind - Timeout ({os_name})",
+                                "evidence": {"payload": payload, "result": "Timeout"},
+                                "poc": f"curl '{test_url}'",
+                                "remediation": "Never pass user input to system commands"
+                            })
+                            return findings
                     except:
                         continue
         
@@ -120,7 +128,7 @@ class IntensiveCommandInjectionScanner:
                         test_url = self._build_url(url, param, payload)
                         
                         try:
-                            response = requests.get(test_url, timeout=10)
+                            response = self.http.get(test_url, timeout=10)
                             
                             # Check if command output appears in response
                             for pattern in self.success_patterns:
@@ -162,7 +170,7 @@ class IntensiveCommandInjectionScanner:
         ]
         
         try:
-            baseline = requests.get(url, timeout=10)
+            baseline = self.http.get(url, timeout=10)
             baseline_text = baseline.text
         except:
             return findings
@@ -171,7 +179,7 @@ class IntensiveCommandInjectionScanner:
             test_url = self._build_url(url, param, payload)
             
             try:
-                response = requests.get(test_url, timeout=10)
+                response = self.http.get(test_url, timeout=10)
                 
                 # Check if response changed significantly
                 if "INJECTED" in response.text and "INJECTED" not in baseline_text:

@@ -10,6 +10,8 @@ import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import threading
+import signal
+import time
 
 # ── Force UTF-8 I/O on Windows (cp1252 can't handle emoji in print statements) ──
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -21,7 +23,7 @@ app = Flask(__name__)
 
 # Enhanced CORS configuration
 CORS(app, resources={r"/*": {
-    "origins": ["http://localhost:5173", "http://localhost:5174", "http://localhost:5000"],
+    "origins": ["http://localhost:5173", "http://localhost:5174", "http://localhost:5000", "http://localhost:5001"],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"],
     "supports_credentials": True
@@ -29,6 +31,12 @@ CORS(app, resources={r"/*": {
 
 # Store active scans
 active_scans = {}
+
+# Backend API Configuration
+BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:5001')
+print(f"📡 Backend Reporting URL: {BACKEND_URL}")
+
+SCANNER_HEADERS = {'x-scanner-api-key': os.environ.get('SCANNER_API_KEY', 'secure-scanner-key')}
 
 # Map internal phase names to human-readable display names
 PHASE_NAMES = {
@@ -43,7 +51,7 @@ PHASE_NAMES = {
 }
 
 
-def run_scan(scan_id, target_url, config, phase="all"):
+def run_scan(scan_id, target_url, config, phase="all", user_id=None):
     """Run scanner in subprocess"""
     try:
         # Get the scanner-core directory path
@@ -61,27 +69,55 @@ def run_scan(scan_id, target_url, config, phase="all"):
         print(f"🔧 Running {phase} scanner from directory: {scanner_core_dir}")
         print(f"🔧 Command: {' '.join(cmd)}\n")
         
+        # Platform-aware process group creation
+        kwargs = {}
+        if sys.platform != 'win32':
+            kwargs['preexec_fn'] = os.setsid
+        else:
+            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+        
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            cwd=scanner_core_dir
+            cwd=scanner_core_dir,
+            **kwargs
         )
         
         active_scans[scan_id] = {
             'process': process,
-            'status': 'running'
+            'status': 'running',
+            'user_id': user_id,
+            'logs': [],
+            'findings_summary': { 'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'info': 0 }
         }
         
         # Read output line by line
         current_phase = None
+        last_sync_time = time.time()
         
         for line in process.stdout:
             line = line.strip()
             if not line: continue
             
+            # Helper to sync logs periodically
+            def sync_logs(force=False):
+                nonlocal last_sync_time
+                if force or (time.time() - last_sync_time > 2.0):
+                    try:
+                        # Only send the most recent 100 logs to keep DB/UI snappy
+                        log_snapshot = active_scans[scan_id]['logs'][-100:]
+                        requests.put(
+                            f'{BACKEND_URL}/api/scans/{scan_id}',
+                            headers=SCANNER_HEADERS,
+                            json={'metadata': {'logs': log_snapshot}},
+                            timeout=10
+                        )
+                        last_sync_time = time.time()
+                    except: pass
+
             if line.startswith('PROGRESS:'):
                 try:
                     data = json.loads(line[9:])
@@ -89,25 +125,36 @@ def run_scan(scan_id, target_url, config, phase="all"):
                     msg = data.get('message', '')
                     prog = data.get('progress', 0)
                     
-                    # Print header if phase has changed
                     if phase != current_phase:
-                        display_name = PHASE_NAMES.get(phase, phase.upper())
-                        print(f"\n{'─'*10} {display_name} {'─'*10}")
                         current_phase = phase
                     
-                    # Clean the message if it already has the phase prefix (e.g. [Recon])
-                    # engine.py often includes bracketed prefixes; we can leave them or clean them.
-                    # Given the user wants "details for recon", keeping the message as is works well.
                     print(f"  [{prog:>2}%] {msg}")
 
-                    # Update scan progress in database via backend API
+                    # Update scan progress and sync logs
                     requests.put(
-                        f'http://localhost:5000/api/scans/{scan_id}',
-                        json={'progress': prog, 'current_phase': phase}
+                        f'{BACKEND_URL}/api/scans/{scan_id}',
+                        headers=SCANNER_HEADERS,
+                        json={
+                            'progress': prog, 
+                            'current_phase': phase,
+                            'metadata': {'logs': active_scans[scan_id]['logs'][-100:]}
+                        }
                     )
                 except Exception as e:
-                    # Fallback to raw if JSON fails
                     print(f"  [??%] {line}")
+            
+            elif line.startswith('METADATA:'):
+                try:
+                    data = json.loads(line[9:])
+                    # Sync metadata update to backend
+                    requests.put(
+                        f'{BACKEND_URL}/api/scans/{scan_id}',
+                        headers=SCANNER_HEADERS,
+                        json={'metadata': data}
+                    )
+                    print(f"  [meta] Updated: {list(data.keys())}")
+                except Exception as e:
+                    print(f"  [meta] Error: {str(e)}")
                 
             elif line.startswith('FINDING:'):
                 try:
@@ -117,19 +164,25 @@ def run_scan(scan_id, target_url, config, phase="all"):
                     sev_icon = "🔴" if severity == "CRITICAL" else "🟠" if severity == "HIGH" else "🟡" if severity == "MEDIUM" else "🔵"
                     
                     print(f"\n  {sev_icon}  {severity} (Score: {score}): {data.get('name')}")
-                    print(f"      Target: {data.get('url')}")
-                    if data.get('owasp_category'):
-                        print(f"      Scope:  {data.get('owasp_category')}")
+                    
+                    # Log the finding to the internal buffer too
+                    active_scans[scan_id]['logs'].append(f"FINDING: {data.get('name')} ({severity})")
+                    
+                    # Update summary
+                    sev_key = severity.lower()
+                    if sev_key in active_scans[scan_id]['findings_summary']:
+                        active_scans[scan_id]['findings_summary'][sev_key] += 1
+                    else:
+                        active_scans[scan_id]['findings_summary'][sev_key] = 1
 
                     # Save finding to database via backend API
                     evidence_payload = data.get('evidence', {})
-                    if isinstance(evidence_payload, dict) and data.get('technique'):
-                        evidence_payload['detected_technique'] = data.get('technique')
-
                     requests.post(
-                        'http://localhost:5000/api/findings',
+                        f'{BACKEND_URL}/api/findings',
+                        headers=SCANNER_HEADERS,
                         json={
                             'scan_id': scan_id,
+                            'user_id': active_scans[scan_id].get('user_id'),
                             'name': data.get('name'),
                             'severity': data.get('severity'),
                             'owasp_category': data.get('owasp_category'),
@@ -144,11 +197,12 @@ def run_scan(scan_id, target_url, config, phase="all"):
                     print(f"   ❌ Error saving finding: {e}")
 
             elif line.startswith('CRAWLER_GRAPH:'):
+                # ... graph handling (omitted for brevity, keeping existing logic)
                 try:
                     data = json.loads(line[14:])
-                    # Sync with backend to populate the "Attack Surface" view
                     requests.post(
-                        'http://localhost:5000/api/crawl',
+                        f'{BACKEND_URL}/api/crawl',
+                        headers=SCANNER_HEADERS,
                         json={
                             'target_url': target_url,
                             'scan_id': scan_id,
@@ -156,74 +210,74 @@ def run_scan(scan_id, target_url, config, phase="all"):
                             'edges': data.get('edges'),
                             'forms': data.get('forms', []),
                             'stats': data.get('stats', {})
-                        }
+                        },
+                        timeout=10
                     )
-                except Exception as e:
-                    print(f"   ❌ Error saving crawler graph: {e}")
+                except: pass
 
+            elif line.startswith('WARNING:'):
+                active_scans[scan_id]['logs'].append(f"WARNING: {line[8:]}")
+                sync_logs()
+                
             elif line.startswith('ERROR:'):
+                error_content = line[6:].strip()
+                active_scans[scan_id]['logs'].append(f"ERROR: {error_content}")
+                
+                # Try to parse as JSON to see if it's a structured engine error
+                # Regular Python logging (e.g., ERROR:root:HTTP Request failed) shouldn't fail the entire scan
+                is_fatal = False
                 try:
-                    data = json.loads(line[6:])
-                    print(f"\n  ❌ ERROR: {data.get('error')}")
+                    json.loads(error_content)
+                    is_fatal = True  # It's a structured error from emit_error()
+                except ValueError:
+                    if "CRITICAL:" in line or "FATAL:" in line:
+                        is_fatal = True
+                        
+                if is_fatal:
                     active_scans[scan_id]['status'] = 'failed'
-                    requests.put(f'http://localhost:5000/api/scans/{scan_id}', json={'status': 'failed'})
-                except:
-                    print(f"  ❌ RAW ERROR: {line}")
+                    requests.put(f'{BACKEND_URL}/api/scans/{scan_id}', headers=SCANNER_HEADERS, json={'status': 'failed'})
+                else:
+                    sync_logs()
                 
             elif line.startswith('RESULT:'):
+                # ... final result handling
                 try:
                     data = json.loads(line[7:])
-                    print(f"\n{'='*50}")
-                    print(f"✨ SCAN COMPLETED FOR: {target_url}")
-                    print(f"📊 Findings Count: {data.get('findings_count', 0)}")
-                    
                     meta = data.get('metadata', {})
-                    if meta:
-                        print(f"🔍 Discovery Summary:")
-                        if 'technologies' in meta:
-                            techs = meta['technologies'].get('technologies', [])
-                            if techs: print(f"   • Tech Stack: {', '.join(techs)}")
-                            if 'server' in meta['technologies']: print(f"   • Server:     {meta['technologies']['server']}")
-                        
-                        if 'waf' in meta:
-                            waf_data = meta['waf']
-                            status = "Protected" if waf_data.get('waf_detected') else "None detected"
-                            wafs = f" ({', '.join(waf_data.get('wafs', []))})" if waf_data.get('wafs') else ""
-                            print(f"   • WAF Status: {status}{wafs}")
-                        
-                        if 'ports' in meta:
-                            ports = meta['ports'].get('open_ports', [])
-                            if ports:
-                                p_list = [f"{p['port']}/{p['service']}" for p in ports]
-                                print(f"   • Open Ports: {', '.join(p_list)}")
-                        
-                        if 'crawl' in meta:
-                            stats = meta['crawl'].get('stats', {})
-                            print(f"   • Attack Surface: {stats.get('total_nodes', 0)} nodes / {stats.get('total_edges', 0)} edges")
-
-                    if 'report_path' in meta:
-                        print(f"📄 Report: {meta['report_path']}")
-                    print(f"{'='*50}\n")
-
-                    active_scans[scan_id]['status'] = 'completed'
+                    # Include logs in final metadata
+                    meta['logs'] = active_scans[scan_id]['logs']
+                    summary = active_scans[scan_id].get('findings_summary', {})
+                    
                     requests.put(
-                        f'http://localhost:5000/api/scans/{scan_id}',
+                        f'{BACKEND_URL}/api/scans/{scan_id}',
+                        headers=SCANNER_HEADERS,
                         json={
                             'status': 'completed',
                             'progress': 100,
                             'metadata': meta,
                             'findings_count': data.get('findings_count', 0),
+                            'critical_count': summary.get('critical', 0),
+                            'high_count': summary.get('high', 0),
+                            'medium_count': summary.get('medium', 0),
+                            'low_count': summary.get('low', 0),
+                            'info_count': summary.get('info', 0),
                         }
                     )
-                except Exception as e:
-                    print(f"  Result processed with error: {e}")
-
+                except: pass
+            else:
+                # Capture raw engine logs
+                clean_log = line.replace('[ENGINE LOG] ', '').strip()
+                if clean_log:
+                    timestamp = time.strftime("%H:%M:%S")
+                    active_scans[scan_id]['logs'].append(f"[{timestamp}] {clean_log}")
+                    sync_logs()
                 
         process.wait()
         
     except Exception as e:
         print(f"Error running scan: {str(e)}")
-        active_scans[scan_id]['status'] = 'failed'
+        if scan_id in active_scans:
+            active_scans[scan_id]['status'] = 'failed'
 
 
 @app.route('/health', methods=['GET'])
@@ -240,6 +294,7 @@ def start_scan():
     """Start a new scan"""
     data = request.json
     scan_id = data.get('scan_id')
+    user_id = data.get('user_id')
     target_url = data.get('target_url')
     config = data.get('config', {})
     phase = data.get('phase', 'all')
@@ -258,7 +313,7 @@ def start_scan():
     # Start scan in background thread
     thread = threading.Thread(
         target=run_scan,
-        args=(scan_id, target_url, config, phase)
+        args=(scan_id, target_url, config, phase, user_id)
     )
     thread.daemon = True
     thread.start()
@@ -296,20 +351,31 @@ def stop_scan(scan_id):
     if process and process.poll() is None:
         try:
             print(f"🛑 Stopping scan {scan_id}...")
-            # On Windows, we might need taskkill to ensure the whole process tree is killed
-            import subprocess
-            subprocess.run(['taskkill', '/F', '/T', '/PID', str(process.pid)], capture_output=True)
+            # Platform-aware process termination
+            if sys.platform != 'win32':
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            else:
+                process.terminate()
+            
+            # Allow a moment for cleanup
+            time.sleep(1)
+            if process.poll() is None:
+                if sys.platform != 'win32':
+                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                else:
+                    process.kill()
             
             active_scans[scan_id]['status'] = 'stopped'
             
             # Notify backend
             try:
                 requests.put(
-                    f'http://localhost:5000/api/scans/{scan_id}',
+                    f'{BACKEND_URL}/api/scans/{scan_id}',
+                    headers=SCANNER_HEADERS,
                     json={'status': 'stopped', 'progress': 0}
                 )
-            except:
-                pass
+            except Exception as e:
+                print(f"   ⚠️ Error notifying backend of stop: {e}")
                 
             return jsonify({'success': True, 'message': 'Scan stopped successfully'})
         except Exception as e:

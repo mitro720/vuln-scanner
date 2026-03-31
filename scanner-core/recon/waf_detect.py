@@ -7,9 +7,16 @@ from typing import Dict, Any, List
 
 
 class WAFDetector:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
         
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
+            
         # Known WAF signatures
         self.waf_signatures = {
             "Cloudflare": ["cloudflare", "cf-ray"],
@@ -26,7 +33,7 @@ class WAFDetector:
         
         try:
             # Normal request
-            response = requests.get(self.target_url, timeout=10)
+            response = self.http.get(self.target_url, timeout=10)
             headers = {k.lower(): v for k, v in response.headers.items()}
             
             # Check headers for WAF signatures
@@ -40,7 +47,7 @@ class WAFDetector:
             # Send malicious payload to trigger WAF
             malicious_url = f"{self.target_url}?test=<script>alert(1)</script>"
             try:
-                mal_response = requests.get(malicious_url, timeout=10)
+                mal_response = self.http.get(malicious_url, timeout=10)
                 
                 # Check for WAF block responses
                 if mal_response.status_code in [403, 406, 419, 429, 503]:

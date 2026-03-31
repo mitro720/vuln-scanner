@@ -9,8 +9,15 @@ from typing import List, Dict, Any
 
 
 class ComponentsModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # Known vulnerable versions (examples)
         self.vulnerable_versions = {
@@ -108,7 +115,7 @@ class ComponentsModule:
         all_findings = []
         
         try:
-            response = requests.get(self.target_url, timeout=10)
+            response = self.http.get(self.target_url, timeout=10)
             
             # Detect JS libraries
             js_findings = self.detect_js_libraries(response.text)

@@ -1,0 +1,4 @@
+attacker.hackyourselffirst.troyhunt.com
+secure.hackyourselffirst.troyhunt.com
+secure.hackyourselffirst.troyhunt.com
+attacker.hackyourselffirst.troyhunt.com

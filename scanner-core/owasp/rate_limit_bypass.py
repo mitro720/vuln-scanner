@@ -23,8 +23,15 @@ BYPASS_HEADERS = [
 
 
 class RateLimitBypassModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
 
     def _find_login_endpoints(self, urls: List[str]) -> List[str]:
         keywords = ['login', 'signin', 'auth', 'token', 'password', 'session']
@@ -40,7 +47,9 @@ class RateLimitBypassModule:
 
         # 1. Establish whether rate limit exists (baseline)
         baseline_statuses = []
-        base_session = requests.Session()
+        # Use a temporary session for baseline if we don't want to pollute or if we want to test 'clean'
+        # But we replace base_session = requests.Session() with self.http (if it's a session) or r.Session()
+        base_session = self.http if hasattr(self.http, 'get') and not isinstance(self.http, type(requests)) else requests.Session()
         for _ in range(REPEAT):
             try:
                 r = base_session.get(url, timeout=5)
@@ -57,8 +66,11 @@ class RateLimitBypassModule:
         # 2. Try each bypass header
         for header in BYPASS_HEADERS:
             bypass_statuses = []
+            # We must use a NEW session per header to test bypass properly, 
+            # but we can copy some traits from self.http if it's a session or HttpClient
             bypass_session = requests.Session()
             bypass_session.headers.update(header)
+            
             for _ in range(REPEAT):
                 try:
                     r = bypass_session.get(url, timeout=5)

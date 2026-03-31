@@ -15,10 +15,17 @@ from core.payload_loader import payload_loader
 
 
 class IntensiveSQLiScanner:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
         self.findings = []
         self.detected_db = None
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
         # Database fingerprinting payloads
         self.db_fingerprints = {
@@ -65,7 +72,7 @@ class IntensiveSQLiScanner:
                 test_url = self._build_url(url, param, test_payload)
                 
                 try:
-                    response = requests.get(test_url, timeout=5)
+                    response = self.http.get(test_url, timeout=5)
                     if response.status_code != 500:  # No error = might be valid
                         return db_type
                 except:
@@ -95,7 +102,7 @@ class IntensiveSQLiScanner:
             
             try:
                 start_time = time.time()
-                response = requests.get(test_url, timeout=15)
+                response = self.http.get(test_url, timeout=15)
                 elapsed = time.time() - start_time
                 
                 # If response took ~5 seconds, it's vulnerable
@@ -117,9 +124,11 @@ class IntensiveSQLiScanner:
                         "remediation": "Use parameterized queries. Never concatenate user input into SQL."
                     })
                     return findings  # Found it, no need to test more
-            except requests.exceptions.Timeout:
-                # Timeout might indicate successful injection
-                findings.append({
+            except (requests.exceptions.Timeout, Exception) as e:
+                # Check for timeout specifically if possible, though http.get might time out
+                if "timeout" in str(e).lower():
+                    # Timeout might indicate successful injection
+                    findings.append({
                     "name": "SQL Injection (Time-based Blind - High Confidence)",
                     "severity": "critical",
                     "owasp_category": "A03:2021",
@@ -144,18 +153,18 @@ class IntensiveSQLiScanner:
         try:
             # Get baseline
             baseline_url = self._build_url(url, param, "1")
-            baseline_response = requests.get(baseline_url, timeout=10)
+            baseline_response = self.http.get(baseline_url, timeout=10)
             baseline_length = len(baseline_response.text)
             baseline_status = baseline_response.status_code
             
             for true_payload, false_payload in self.boolean_payloads:
                 # Test TRUE condition
                 true_url = self._build_url(url, param, true_payload)
-                true_response = requests.get(true_url, timeout=10)
+                true_response = self.http.get(true_url, timeout=10)
                 
                 # Test FALSE condition
                 false_url = self._build_url(url, param, false_payload)
-                false_response = requests.get(false_url, timeout=10)
+                false_response = self.http.get(false_url, timeout=10)
                 
                 true_len = len(true_response.text)
                 false_len = len(false_response.text)
@@ -195,7 +204,7 @@ class IntensiveSQLiScanner:
             test_url = self._build_url(url, param, payload)
             
             try:
-                response = requests.get(test_url, timeout=10)
+                response = self.http.get(test_url, timeout=10)
                 
                 # Check for SQL errors
                 error_patterns = ["SQL syntax", "mysql_fetch", "ORA-", "PostgreSQL", "SQLite"]

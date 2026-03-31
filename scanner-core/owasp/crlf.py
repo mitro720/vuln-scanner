@@ -19,10 +19,15 @@ CRLF_PAYLOADS = [
 
 
 class CRLFModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
-        self.session = requests.Session()
-        self.session.headers.update({'User-Agent': 'SecureScan/1.0'})
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            self.http = requests.Session()
+            self.http.headers.update({'User-Agent': 'SecureScan/1.0'})
 
     def test_url(self, url: str) -> List[Dict[str, Any]]:
         findings = []
@@ -40,7 +45,7 @@ class CRLFModule:
                     test_url = f"{url.rstrip('/')}/{payload}"
 
                 try:
-                    resp = self.session.get(test_url, timeout=8, allow_redirects=False)
+                    resp = self.http.get(test_url, timeout=8, allow_redirects=False)
                     # Check if our injected header appeared in the response headers
                     if 'X-Injected' in resp.headers or 'injected' in resp.headers.get('Set-Cookie', ''):
                         findings.append({

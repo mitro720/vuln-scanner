@@ -14,6 +14,7 @@ class AIProvider(Enum):
     ANTHROPIC = "anthropic"
     GOOGLE = "google"
     OLLAMA = "ollama"
+    GROQ = "groq"
     CUSTOM = "custom"
 
 
@@ -23,7 +24,7 @@ class AIAssistant:
         Initialize AI Assistant
         
         Args:
-            provider: AI provider (openai, anthropic, google, ollama, custom)
+            provider: AI provider (openai, anthropic, google, ollama, groq, custom)
             api_key: API key for the provider (not needed for Ollama)
             base_url: Custom base URL (for Ollama or custom providers)
         """
@@ -38,6 +39,7 @@ class AIAssistant:
             "anthropic": "https://api.anthropic.com/v1/messages",
             "google": "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
             "ollama": "http://localhost:11434/api/generate",
+            "groq": "https://api.groq.com/openai/v1/chat/completions",
         }
         return urls.get(self.provider, "")
         
@@ -217,6 +219,8 @@ Provide remediation guidance in JSON format:
                 return self._call_google(prompt)
             elif self.provider == "ollama":
                 return self._call_ollama(prompt)
+            elif self.provider == "groq":
+                return self._call_groq(prompt)
             elif self.provider == "custom":
                 return self._call_custom(prompt)
             else:
@@ -232,7 +236,7 @@ Provide remediation guidance in JSON format:
         }
         
         data = {
-            "model": "gpt-4",
+            "model": "gpt-4o-mini",
             "messages": [
                 {"role": "system", "content": "You are a cybersecurity expert assistant."},
                 {"role": "user", "content": prompt}
@@ -303,7 +307,7 @@ Provide remediation guidance in JSON format:
     def _call_ollama(self, prompt: str) -> Dict[str, Any]:
         """Call Ollama (local) API"""
         data = {
-            "model": "llama2",
+            "model": "llama3.2",
             "prompt": prompt,
             "stream": False
         }
@@ -313,6 +317,34 @@ Provide remediation guidance in JSON format:
         
         result = response.json()
         content = result.get("response", "")
+        
+        try:
+            return json.loads(content)
+        except:
+            return {"explanation": content}
+
+    def _call_groq(self, prompt: str) -> Dict[str, Any]:
+        """Call Groq API (OpenAI compatible)"""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": "You are a cybersecurity expert assistant. You must respond in JSON format."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.4,
+            "response_format": {"type": "json_object"}
+        }
+        
+        response = requests.post(self.base_url, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
         
         try:
             return json.loads(content)

@@ -19,13 +19,18 @@ PRIVILEGED_FIELDS = [
 
 
 class MassAssignmentModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'SecureScan/1.0',
-            'Content-Type': 'application/json'
-        })
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            self.http = requests.Session()
+            self.http.headers.update({
+                'User-Agent': 'SecureScan/1.0',
+                'Content-Type': 'application/json'
+            })
 
     def _get_api_endpoints(self, urls: List[str]) -> List[str]:
         """Filter to likely API endpoints"""
@@ -40,7 +45,7 @@ class MassAssignmentModule:
 
         for method in ('POST', 'PUT', 'PATCH'):
             try:
-                resp = self.session.request(
+                resp = self.http.request(
                     method, url,
                     data=json.dumps(payload),
                     timeout=8

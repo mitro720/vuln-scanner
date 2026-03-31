@@ -15,10 +15,17 @@ from core.payload_loader import payload_loader
 
 
 class SQLiModule:
-    def __init__(self, target_url: str, custom_payloads: List[str] = None):
+    def __init__(self, target_url: str, custom_payloads: List[str] = None, http_client: Any = None):
         self.target_url = target_url
         self.findings = []
         
+        # Inject custom HttpClient if provided, otherwise default to basic requests mockup
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
+
         # Default SQL injection payloads
         default_payloads = [
             "' OR '1'='1",
@@ -55,7 +62,7 @@ class SQLiModule:
         
         try:
             # Get baseline response
-            baseline_response = requests.get(url, timeout=10)
+            baseline_response = self.http.get(url, timeout=5)
             baseline_length = len(baseline_response.text)
             
             for payload in self.payloads:
@@ -66,7 +73,7 @@ class SQLiModule:
                 test_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urlencode(params, doseq=True)}"
                 
                 # Send request
-                response = requests.get(test_url, timeout=10)
+                response = self.http.get(test_url, timeout=5)
                 
                 # Check for error-based SQLi
                 for pattern in self.error_patterns:

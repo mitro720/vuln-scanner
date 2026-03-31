@@ -57,14 +57,14 @@ const KnowledgeBase = () => {
         <div className="max-w-7xl mx-auto px-4">
             <div className="mb-8">
                 <h1 className="text-4xl font-bold text-gradient mb-2">Knowledge Base</h1>
-                <p className="text-gray-600">Learn about web vulnerabilities, detection techniques, and prevention methods</p>
+                <p className="text-gray-300">Learn about web vulnerabilities, detection techniques, and prevention methods</p>
             </div>
 
             <div className="grid grid-cols-3 gap-6">
                 {/* Vulnerability List */}
                 <div className="col-span-1">
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <div className="bg-gray-900 rounded-xl shadow-lg p-6">
+                        <h2 className="text-xl font-bold text-white mb-4 flex items-center">
                             <Book className="mr-2" size={20} />
                             Vulnerabilities
                         </h2>
@@ -75,15 +75,15 @@ const KnowledgeBase = () => {
                                     onClick={() => setSelectedVuln(vuln)}
                                     className={`p-4 rounded-lg cursor-pointer transition-all hover:shadow-md ${selectedVuln?.id === vuln.id
                                         ? 'bg-gradient-to-r from-purple-50 to-pink-50 ring-2 ring-purple-500'
-                                        : 'bg-gray-50 hover:bg-gray-100'
+                                        : 'bg-gray-50 hover:bg-gray-800'
                                         }`}
                                 >
-                                    <h3 className="font-semibold text-gray-800">{vuln.name}</h3>
+                                    <h3 className="font-semibold text-white">{vuln.name}</h3>
                                     <div className="flex items-center justify-between mt-2">
                                         <span className={`text-xs px-2 py-1 rounded-full ${getDifficultyColor(vuln.difficulty)}`}>
                                             {vuln.difficulty}
                                         </span>
-                                        <span className="text-xs text-gray-500">{vuln.cwe}</span>
+                                        <span className="text-xs text-gray-400">{vuln.cwe}</span>
                                     </div>
                                 </div>
                             ))}
@@ -94,11 +94,11 @@ const KnowledgeBase = () => {
                 {/* Vulnerability Details */}
                 <div className="col-span-2">
                     {selectedVuln ? (
-                        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
+                        <div className="bg-gray-900 rounded-xl shadow-lg p-8 space-y-6">
                             <div>
-                                <h2 className="text-3xl font-bold text-gray-800 mb-2">{selectedVuln.name}</h2>
+                                <h2 className="text-3xl font-bold text-white mb-2">{selectedVuln.name}</h2>
                                 <div className="flex items-center space-x-4">
-                                    <span className="text-sm text-gray-600">{selectedVuln.category}</span>
+                                    <span className="text-sm text-gray-300">{selectedVuln.category}</span>
                                     <span className={`text-xs px-3 py-1 rounded-full ${getDifficultyColor(selectedVuln.difficulty)}`}>
                                         {selectedVuln.difficulty}
                                     </span>
@@ -108,7 +108,7 @@ const KnowledgeBase = () => {
 
                             {/* Description */}
                             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-                                <h3 className="font-semibold text-gray-800 mb-2 flex items-center">
+                                <h3 className="font-semibold text-white mb-2 flex items-center">
                                     <Shield className="mr-2" size={18} />
                                     What is it?
                                 </h3>
@@ -124,9 +124,9 @@ const KnowledgeBase = () => {
                             <div>
                                 <button
                                     onClick={() => toggleSection('how_it_works')}
-                                    className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-800 transition-colors"
                                 >
-                                    <h3 className="font-semibold text-gray-800">How It Works</h3>
+                                    <h3 className="font-semibold text-white">How It Works</h3>
                                     {expandedSections['how_it_works'] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                 </button>
                                 {expandedSections['how_it_works'] && (
@@ -145,9 +145,9 @@ const KnowledgeBase = () => {
                             <div>
                                 <button
                                     onClick={() => toggleSection('code_examples')}
-                                    className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-800 transition-colors"
                                 >
-                                    <h3 className="font-semibold text-gray-800 flex items-center">
+                                    <h3 className="font-semibold text-white flex items-center">
                                         <Code className="mr-2" size={18} />
                                         Code Examples
                                     </h3>
@@ -186,7 +186,7 @@ res.send(\`<h1>Welcome \${escaped}</h1>\`);`}
 
                             {/* Prevention */}
                             <div>
-                                <h3 className="font-semibold text-gray-800 mb-3">Prevention Methods</h3>
+                                <h3 className="font-semibold text-white mb-3">Prevention Methods</h3>
                                 <ul className="space-y-2">
                                     {selectedVuln.id === 'sql_injection' && (
                                         <>
@@ -225,7 +225,7 @@ res.send(\`<h1>Welcome \${escaped}</h1>\`);`}
 
                             {/* Learning Resources */}
                             <div>
-                                <h3 className="font-semibold text-gray-800 mb-3">Learning Resources</h3>
+                                <h3 className="font-semibold text-white mb-3">Learning Resources</h3>
                                 <div className="space-y-2">
                                     <a
                                         href="https://portswigger.net/web-security"
@@ -234,8 +234,8 @@ res.send(\`<h1>Welcome \${escaped}</h1>\`);`}
                                         className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
                                     >
                                         <div>
-                                            <p className="font-medium text-gray-800">PortSwigger Web Security Academy</p>
-                                            <p className="text-xs text-gray-600">Free interactive tutorials</p>
+                                            <p className="font-medium text-white">PortSwigger Web Security Academy</p>
+                                            <p className="text-xs text-gray-300">Free interactive tutorials</p>
                                         </div>
                                         <ExternalLink size={16} className="text-purple-600" />
                                     </a>
@@ -246,8 +246,8 @@ res.send(\`<h1>Welcome \${escaped}</h1>\`);`}
                                         className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
                                     >
                                         <div>
-                                            <p className="font-medium text-gray-800">OWASP Documentation</p>
-                                            <p className="text-xs text-gray-600">Comprehensive security guides</p>
+                                            <p className="font-medium text-white">OWASP Documentation</p>
+                                            <p className="text-xs text-gray-300">Comprehensive security guides</p>
                                         </div>
                                         <ExternalLink size={16} className="text-purple-600" />
                                     </a>
@@ -258,8 +258,8 @@ res.send(\`<h1>Welcome \${escaped}</h1>\`);`}
                                         className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
                                     >
                                         <div>
-                                            <p className="font-medium text-gray-800">HackTheBox</p>
-                                            <p className="text-xs text-gray-600">Practice labs and CTF challenges</p>
+                                            <p className="font-medium text-white">HackTheBox</p>
+                                            <p className="text-xs text-gray-300">Practice labs and CTF challenges</p>
                                         </div>
                                         <ExternalLink size={16} className="text-purple-600" />
                                     </a>
@@ -267,7 +267,7 @@ res.send(\`<h1>Welcome \${escaped}</h1>\`);`}
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-white rounded-xl shadow-lg p-8 flex items-center justify-center h-full min-h-[600px]">
+                        <div className="bg-gray-900 rounded-xl shadow-lg p-8 flex items-center justify-center h-full min-h-[600px]">
                             <div className="text-center text-gray-400">
                                 <Book size={64} className="mx-auto mb-4" />
                                 <p className="text-lg">Select a vulnerability to learn more</p>

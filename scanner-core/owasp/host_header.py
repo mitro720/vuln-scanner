@@ -7,9 +7,16 @@ from urllib.parse import urlparse
 from typing import List, Dict, Any
 
 class HostHeaderInjectionModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url # Base URL
         self.evil_host = "evil-host-header.com"
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
     def scan(self, urls: List[str]) -> List[Dict[str, Any]]:
         findings = []
@@ -31,7 +38,7 @@ class HostHeaderInjectionModule:
                 
                 for head in test_headers:
                     # Request without following redirects to see if the Location header is poisoned
-                    resp = requests.get(url, headers=head, timeout=5, allow_redirects=False)
+                    resp = self.http.get(url, headers=head, timeout=5, allow_redirects=False)
                     
                     is_vulnerable = False
                     evidence = ""
@@ -61,7 +68,7 @@ class HostHeaderInjectionModule:
                         })
                         break # Only report once per URL
                         
-            except requests.RequestException:
+            except Exception:
                 pass
                 
         return findings

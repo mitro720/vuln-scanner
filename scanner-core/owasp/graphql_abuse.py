@@ -23,13 +23,18 @@ BATCH_QUERY = '[{"query":"{__typename}"},{"query":"{__typename}"}]'
 
 
 class GraphQLAbuseModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'SecureScan/1.0',
-            'Content-Type': 'application/json'
-        })
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            self.http = requests.Session()
+            self.http.headers.update({
+                'User-Agent': 'SecureScan/1.0',
+                'Content-Type': 'application/json'
+            })
 
     def _get_base(self) -> str:
         parsed = urlparse(self.target_url)
@@ -43,7 +48,7 @@ class GraphQLAbuseModule:
         for path in GRAPHQL_PATHS:
             endpoint = base + path
             try:
-                resp = self.session.post(endpoint, data=INTROSPECTION_QUERY, timeout=8)
+                resp = self.http.post(endpoint, data=INTROSPECTION_QUERY, timeout=8)
                 if resp.status_code == 200:
                     try:
                         data = resp.json()
@@ -78,7 +83,7 @@ class GraphQLAbuseModule:
         for path in GRAPHQL_PATHS:
             endpoint = base + path
             try:
-                resp = self.session.post(endpoint, data=BATCH_QUERY, timeout=8)
+                resp = self.http.post(endpoint, data=BATCH_QUERY, timeout=8)
                 if resp.status_code == 200:
                     try:
                         data = resp.json()

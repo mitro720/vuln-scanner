@@ -1,55 +1,66 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import SeverityBadge from '../components/common/SeverityBadge'
-import { CheckCircle, Loader, XCircle, Eye } from 'lucide-react'
+import { CheckCircle, Loader, XCircle, Eye, Activity, Square, Trash2 } from 'lucide-react'
+
+const API = 'http://localhost:5000/api'
 
 const History = () => {
-    const [scans] = useState([
-        {
-            id: 1,
-            target: 'example.com',
-            status: 'completed',
-            date: '2026-01-26',
-            findings: 12,
-            critical: 2,
-            high: 4,
-            medium: 5,
-            low: 1,
-        },
-        {
-            id: 2,
-            target: 'test.com',
-            status: 'running',
-            date: '2026-01-26',
-            findings: 0,
-            critical: 0,
-            high: 0,
-            medium: 0,
-            low: 0,
-        },
-        {
-            id: 3,
-            target: 'api.dev.io',
-            status: 'completed',
-            date: '2026-01-25',
-            findings: 8,
-            critical: 1,
-            high: 2,
-            medium: 3,
-            low: 2,
-        },
-        {
-            id: 4,
-            target: 'staging.app.com',
-            status: 'failed',
-            date: '2026-01-25',
-            findings: 0,
-            critical: 0,
-            high: 0,
-            medium: 0,
-            low: 0,
-        },
-    ])
+    const [scans, setScans] = useState([])
+    const [loading, setLoading] = useState(true)
+
+    const fetchScans = async () => {
+        try {
+            const token = JSON.parse(localStorage.getItem('user') || '{}')?.token
+            const resp = await fetch('http://localhost:5000/api/scans', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            if (resp.ok) {
+                const data = await resp.json()
+                setScans(data.data || [])
+            }
+        } catch (e) {
+            console.error(e)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useState(() => {
+        fetchScans()
+        const interval = setInterval(fetchScans, 10000)
+        return () => clearInterval(interval)
+    }, [])
+
+    const handleStop = async (id) => {
+        if (!window.confirm("Stop this scan?")) return
+        try {
+            const token = JSON.parse(localStorage.getItem('user') || '{}')?.token
+            await fetch(`${API}/scans/${id}/stop`, { 
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            fetchScans()
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("🗑️ Are you sure you want to PERMANENTLY DELETE this scan and all its findings?")) return
+        try {
+            const token = JSON.parse(localStorage.getItem('user') || '{}')?.token
+            const resp = await fetch(`${API}/scans/${id}`, { 
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            if (resp.ok) {
+                setScans(prev => prev.filter(s => s.id !== id))
+            }
+        } catch (e) {
+            console.error(e)
+        }
+    }
 
     const getStatusIcon = (status) => {
         switch (status) {
@@ -83,7 +94,7 @@ const History = () => {
         <div className="max-w-7xl mx-auto px-4">
             <h1 className="text-4xl font-bold mb-8 text-gradient">Scan History</h1>
 
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-gray-900 rounded-xl shadow-lg overflow-hidden">
                 <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
@@ -97,59 +108,62 @@ const History = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                         {scans.map((scan) => (
-                            <tr key={scan.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4 text-sm text-gray-600">{scan.date}</td>
+                            <tr key={scan.id} className="hover:bg-gray-800 transition-colors">
+                                <td className="px-6 py-4 text-sm text-gray-300">
+                                    {new Date(scan.created_at).toLocaleDateString()}
+                                </td>
                                 <td className="px-6 py-4">
-                                    <div className="font-semibold text-gray-800">{scan.target}</div>
+                                    <div className="font-semibold text-white truncate max-w-md">{scan.target_url}</div>
                                 </td>
                                 <td className="px-6 py-4">{getStatusBadge(scan.status)}</td>
-                                <td className="px-6 py-4 text-sm font-semibold text-gray-800">
-                                    {scan.findings}
+                                <td className="px-6 py-4 text-sm font-semibold text-white">
+                                    {scan.findings_count || 0}
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex flex-wrap gap-1">
-                                        {scan.critical > 0 && (
-                                            <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">
-                                                C:{scan.critical}
+                                        {(scan.critical_count > 0) && (
+                                            <span className="px-2 py-1 bg-red-900/40 text-red-400 rounded text-[10px] font-bold">
+                                                C:{scan.critical_count}
                                             </span>
                                         )}
-                                        {scan.high > 0 && (
-                                            <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-semibold">
-                                                H:{scan.high}
+                                        {(scan.high_count > 0) && (
+                                            <span className="px-2 py-1 bg-orange-900/40 text-orange-400 rounded text-[10px] font-bold">
+                                                H:{scan.high_count}
                                             </span>
                                         )}
-                                        {scan.medium > 0 && (
-                                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold">
-                                                M:{scan.medium}
-                                            </span>
-                                        )}
-                                        {scan.low > 0 && (
-                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
-                                                L:{scan.low}
+                                        {(scan.medium_count > 0) && (
+                                            <span className="px-2 py-1 bg-yellow-900/40 text-yellow-400 rounded text-[10px] font-bold">
+                                                M:{scan.medium_count}
                                             </span>
                                         )}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    {scan.status === 'completed' ? (
+                                    <div className="flex items-center space-x-4">
                                         <Link
-                                            to={`/results/${scan.id}`}
-                                            className="flex items-center space-x-1 text-purple-600 hover:text-purple-800 font-semibold text-sm transition-colors"
+                                            to={scan.status === 'completed' ? `/results/${scan.id}` : `/scan/${scan.id}`}
+                                            className="flex items-center space-x-1 text-purple-400 hover:text-purple-300 font-semibold text-sm transition-colors"
                                         >
                                             <Eye size={16} />
-                                            <span>View Report</span>
+                                            <span>{scan.status === 'completed' ? 'View Report' : 'Live View'}</span>
                                         </Link>
-                                    ) : scan.status === 'running' ? (
-                                        <Link
-                                            to={`/scan/${scan.id}`}
-                                            className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 font-semibold text-sm transition-colors"
+                                        {(scan.status === 'running' || scan.status === 'pending') && (
+                                            <button 
+                                                onClick={() => handleStop(scan.id)}
+                                                className="text-red-500 hover:text-red-400 p-2 hover:bg-red-500/10 rounded-lg transition-all"
+                                                title="Stop Scan"
+                                            >
+                                                <Square size={16} fill="currentColor" />
+                                            </button>
+                                        )}
+                                        <button 
+                                            onClick={() => handleDelete(scan.id)}
+                                            className="text-gray-500 hover:text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-all"
+                                            title="Delete Scan"
                                         >
-                                            <Activity size={16} />
-                                            <span>View Progress</span>
-                                        </Link>
-                                    ) : (
-                                        <span className="text-gray-400 text-sm">No report</span>
-                                    )}
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}

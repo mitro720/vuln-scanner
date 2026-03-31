@@ -8,9 +8,18 @@ import { Server } from 'socket.io'
 import { errorHandler } from './middleware/errorHandler.js'
 import { apiLimiter } from './middleware/rateLimiter.js'
 import { setupWebSocket } from './websocket/scanSocket.js'
-import scanRoutes from './routes/scans.js'
+import scanRoutes, { cleanupStaleScans } from './routes/scans.js'
 import findingRoutes from './routes/findings.js'
 import chatRoutes from './routes/chat.js'
+import cveRoutes from './routes/cves.js'
+import aiRoutes from './routes/ai.js'
+import scheduleRoutes from './routes/schedules.js'
+import policyRoutes from './routes/policies.js'
+import crawlRoutes from './routes/crawl.js'
+import authRoutes from './routes/auth.js'
+import userRoutes from './routes/users.js'
+import { seedAdmin } from './controllers/authController.js'
+import { initSchedules } from './controllers/scheduleController.js'
 
 dotenv.config()
 
@@ -23,7 +32,7 @@ const io = new Server(httpServer, {
     },
 })
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 5001
 
 // Middleware
 app.use(helmet())
@@ -34,6 +43,7 @@ app.use(cors({
 app.use(morgan('dev'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(express.static('public'))
 
 // Rate limiting
 app.use('/api', apiLimiter)
@@ -47,9 +57,16 @@ app.get('/api/health', (req, res) => {
     })
 })
 
+app.use('/api/auth', authRoutes)
+app.use('/api/users', userRoutes)
 app.use('/api/scans', scanRoutes)
 app.use('/api/findings', findingRoutes)
 app.use('/api/chat', chatRoutes)
+app.use('/api', cveRoutes)
+app.use('/api/ai', aiRoutes)
+app.use('/api/schedules', scheduleRoutes)
+app.use('/api/policies', policyRoutes)
+app.use('/api/crawl', crawlRoutes)
 
 // Error handling
 app.use(errorHandler)
@@ -57,8 +74,12 @@ app.use(errorHandler)
 // Setup WebSocket
 export const wsHandlers = setupWebSocket(io)
 
-// Start server
+// Initialize scheduled scans and cleanup zombie scans from DB
+initSchedules().catch(e => console.warn('Schedule init error:', e.message))
+cleanupStaleScans().catch(e => console.warn('Cleanup error:', e.message))
+
 httpServer.listen(PORT, () => {
+    seedAdmin()
     console.log(`
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║

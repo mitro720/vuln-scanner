@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import SeverityBadge from '../components/common/SeverityBadge'
-import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap, Square } from 'lucide-react'
 
 const API = 'http://localhost:5000/api'
 
@@ -124,11 +124,17 @@ const LiveScan = () => {
                 setServices(servData.data || [])
                 setReconData(rcData.success ? rcData.data : null)
 
-                if (scanObj.current_phase) {
+                if (scanObj.metadata?.logs) {
+                    setActivity(scanObj.metadata.logs.map(log => {
+                        // Check if it's already a formatted string with [HH:MM:SS]
+                        if (log.startsWith('[')) return { msg: log, isRaw: true };
+                        return { msg: log, time: new Date().toLocaleTimeString() };
+                    }))
+                } else if (scanObj.current_phase) {
                     setActivity(prev => {
-                        const last = prev[0]
+                        const last = prev[prev.length - 1]
                         if (last?.msg === scanObj.current_phase) return prev
-                        return [{ msg: scanObj.current_phase, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 50)
+                        return [...prev, { msg: scanObj.current_phase, time: new Date().toLocaleTimeString() }].slice(-100)
                     })
                 }
 
@@ -205,14 +211,20 @@ const LiveScan = () => {
                             </span>
                             <button 
                                 onClick={handleStopScan}
-                                className="flex items-center space-x-1.5 text-xs font-bold text-red-400 bg-red-900/20 hover:bg-red-500 hover:text-white px-3 py-1 rounded-full border border-red-500/30 transition-all uppercase tracking-tighter"
+                                className="flex items-center space-x-1.5 text-xs font-bold text-red-100 bg-red-600 hover:bg-red-500 px-4 py-1.5 rounded-full border border-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all uppercase tracking-tighter"
                             >
-                                <span>Stop</span>
+                                <Square size={12} fill="currentColor" />
+                                <span>Stop Process</span>
                             </button>
                         </div>
                     )}
                     {isFailed && <span className="text-sm font-semibold text-red-400 bg-red-900/30 px-3 py-1 rounded-full border border-red-700/40">FAILED</span>}
-                    {isStopped && <span className="text-sm font-semibold text-gray-400 bg-gray-900/30 px-3 py-1 rounded-full border border-gray-800/40 uppercase tracking-widest">Stopped</span>}
+                    {isStopped && (
+                        <div className="flex flex-col items-end">
+                            <span className="text-sm font-semibold text-gray-400 bg-gray-900/30 px-3 py-1 rounded-full border border-gray-800/40 uppercase tracking-widest italic">Interrupted / Stopped</span>
+                            {scan.current_phase?.includes('interrupted') && <span className="text-[10px] text-gray-500 mt-1">Server restarted during scan</span>}
+                        </div>
+                    )}
                     {isCompleted && (
                         <span className="text-sm font-semibold text-green-400 bg-green-900/30 px-3 py-1 rounded-full border border-green-700/40 flex items-center space-x-1">
                             <CheckCircle2 size={13} /><span>COMPLETED — redirecting…</span>
@@ -421,13 +433,18 @@ const LiveScan = () => {
                         {activity.length === 0 ? (
                             <div className="text-center text-gray-600 py-10 italic">Initializing engine…</div>
                         ) : (
-                            activity.map((a, i) => (
-                                <div key={i} className="flex items-start space-x-2 border-l-2 border-gray-800 pl-3">
-                                    <span className="text-gray-600 flex-shrink-0">{a.time}</span>
-                                    <span className="text-purple-400 font-bold shrink-0">::</span>
-                                    <span className="text-gray-300 leading-relaxed">{a.msg}</span>
-                                </div>
-                            ))
+                            activity.map((a, i) => {
+                                const isFinding = a.msg?.includes('FINDING:');
+                                const isWarning = a.msg?.includes('WARNING:');
+                                const isError = a.msg?.includes('ERROR:');
+                                
+                                return (
+                                    <div key={i} className={`flex items-start space-x-2 ${isFinding ? 'text-green-400' : isWarning ? 'text-orange-400' : isError ? 'text-red-400' : 'text-gray-300'} border-l-2 border-gray-800 pl-3 py-0.5`}>
+                                        {!a.isRaw && <span className="text-gray-600 flex-shrink-0 font-bold">[{a.time}]</span>}
+                                        <span className="leading-relaxed break-all font-mono tracking-tight">{a.msg}</span>
+                                    </div>
+                                );
+                            })
                         )}
                         <div ref={logsEndRef} />
                     </div>

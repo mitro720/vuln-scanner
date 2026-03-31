@@ -1,0 +1,47 @@
+﻿ÔÜá´©Å  Using IN-MEMORY database (data will be lost on restart)
+­ƒöî Connected to Supabase
+­ƒº╣ Cleaning up stale scans...
+
+ÔòöÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòù
+Ôòæ                                                       Ôòæ
+Ôòæ   ­ƒöÆ SecureScan API Server                           Ôòæ
+Ôòæ                                                       Ôòæ
+Ôòæ   Server running on: http://localhost:5000        Ôòæ
+Ôòæ   Environment: development                      Ôòæ
+Ôòæ   WebSocket: Ready                                    Ôòæ
+Ôòæ                                                       Ôòæ
+ÔòÜÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòØ
+  
+Ô£à Loaded 0 active scan schedule(s)
+Ô£à Stale scans marked as stopped.
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 1502.526 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 217.040 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 323.667 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 2111.630 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 983.000 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 1040.941 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 1801.480 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 529.035 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 665.973 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 1311.271 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 390.107 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 856.687 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 302.020 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 543.808 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 742.933 ms - 329[0m
+[0mPOST /api/crawl [32m200[0m 576.541 ms - 387[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 471.186 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 201.548 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 1082.084 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 233.054 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 173.566 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 169.314 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 238.548 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 214.028 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 242.811 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 269.177 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 205.644 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 292.867 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 257.448 ms - 329[0m
+[0mPUT /api/scans/crawl-fix-v-final [33m400[0m 233.085 ms - 329[0m
+[0mPOST /api/crawl [32m200[0m 44775.978 ms - 422[0m

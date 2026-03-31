@@ -8,8 +8,9 @@ class RequestSmugglingModule:
     Sends raw malformed HTTP requests over sockets since Python's requests library 
     will automatically fix invalid TE/CL headers.
     """
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
+        self.http = http_client # Store but not used for raw smuggling probes
         self.parsed = urlparse(target_url)
         self.host = self.parsed.netloc.split(':')[0]
         self.port = self.parsed.port or (443 if self.parsed.scheme == 'https' else 80)

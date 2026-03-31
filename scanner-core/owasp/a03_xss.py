@@ -1,136 +1,150 @@
 """
 Cross-Site Scripting (XSS) Detection
 OWASP A03:2021 - Injection
+Improved version for testaspnet.vulnweb.com and similar ASP.NET apps
 """
-
-import requests
+import html
+import json
 from typing import List, Dict, Any
-from urllib.parse import urljoin, urlparse, parse_qs, urlencode
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.payload_loader import payload_loader
-
+from urllib.parse import urlparse, parse_qs, urlencode, urljoin
 
 class XSSModule:
-    def __init__(self, target_url: str, custom_payloads: List[str] = None):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
         
-        # Default XSS payloads
-        default_payloads = [
+        # Use shared HttpClient if provided (recommended)
+        if http_client:
+            self.http = http_client
+        else:
+            import requests
+            self.http = requests
+        
+        # Stronger, context-aware payloads
+        self.payloads = [
             "<script>alert(1)</script>",
             "<img src=x onerror=alert(1)>",
             "<svg/onload=alert(1)>",
-            "javascript:alert(1)",
-            "<iframe src=javascript:alert(1)>",
-            "'-alert(1)-'",
             "\"><script>alert(1)</script>",
+            "'> <script>alert(1)</script>",
+            "\"'><script>alert(1)</script>",
+            "<script>alert(document.domain)</script>",
+            "javascript:alert(1)",
+            "<img src=\"x\" onerror=\"alert(1)\">",
             "<body onload=alert(1)>",
+            # Unique marker payloads (best for detection)
+            "xssTEST123<script>alert(1)</script>",
+            "\"><img src=x onerror=alert('xssTEST123')>",
+            "'; alert('xssTEST123'); //",
+            "\"; alert('xssTEST123'); //",
+        ]
+
+    def _is_xss_success(self, response_text: str, payload: str) -> bool:
+        """Smart detection: Check if payload executed or broke context"""
+        text_lower = response_text.lower()
+        marker = "xssTEST123"
+        
+        # Best case: Our unique marker appears unsanitized
+        if marker in response_text:
+            return True
+        
+        # Common successful patterns
+        success_indicators = [
+            "alert(1)",
+            "alert(document.domain)",
+            "onerror=alert",
+            "<script>alert",
+            "javascript:alert",
+            "xssTEST123"  # fallback
         ]
         
-        # Merge with custom payloads if provided
-        self.payloads = payload_loader.merge_with_defaults(
-            default_payloads,
-            custom_payloads or ['xss.txt']  # Load from file by default
-        )
-        
+        for indicator in success_indicators:
+            if indicator in text_lower:
+                # Extra check: make sure it's not HTML encoded
+                if "&lt;script&gt;" not in response_text and "&amp;lt;" not in response_text:
+                    return True
+        return False
+
     def test_reflected_xss(self, url: str, param: str) -> List[Dict[str, Any]]:
-        """Test for reflected XSS"""
         findings = []
         
         try:
+            parsed = urlparse(url)
+            base_params = parse_qs(parsed.query)
+            
             for payload in self.payloads:
-                # Build test URL
-                parsed = urlparse(url)
-                params = parse_qs(parsed.query)
-                params[param] = [payload]
-                test_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{urlencode(params, doseq=True)}"
+                test_params = base_params.copy()
+                test_params[param] = [payload]
                 
-                response = requests.get(test_url, timeout=10)
+                test_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                if test_params:
+                    test_url += "?" + urlencode(test_params, doseq=True)
                 
-                # Check if payload is reflected without encoding
-                if payload in response.text:
-                    findings.append({
-                        "name": "Reflected Cross-Site Scripting (XSS)",
-                        "severity": "high",
-                        "owasp_category": "A03:2021",
-                        "url": url,
-                        "parameter": param,
-                        "confidence": 90,
-                        "technique": "Reflected",
-                        "evidence": {
-                            "payload": payload,
-                            "reflected": True,
-                            "response_snippet": response.text[:300]
-                        },
-                        "poc": f"curl -X GET \"{test_url}\"",
-                        "remediation": "Implement output encoding/escaping and Content Security Policy"
-                    })
-                    break
+                try:
+                    response = self.http.get(test_url, timeout=8, allow_redirects=True)
+                    
+                    if self._is_xss_success(response.text, payload):
+                        findings.append({
+                            "name": "Reflected Cross-Site Scripting (XSS)",
+                            "severity": "high",
+                            "owasp_category": "A03:2021",
+                            "url": test_url,
+                            "parameter": param,
+                            "confidence": 85,
+                            "technique": "Reflected XSS",
+                            "evidence": {
+                                "payload": payload,
+                                "status_code": response.status_code,
+                                "response_length": len(response.text),
+                                "snippet": response.text[response.text.find("xssTEST123")-80:response.text.find("xssTEST123")+120] 
+                                           if "xssTEST123" in response.text else response.text[:300]
+                            },
+                            "poc": f"Visit: {test_url}",
+                            "remediation": "Use proper output encoding (HtmlEncode) and implement CSP"
+                        })
+                        break  # One finding per parameter is enough
+                        
+                except Exception as e:
+                    continue
                     
         except Exception as e:
-            print(f"Error testing XSS: {str(e)}")
-            
+            print(f"[XSS] Error testing {url}: {str(e)}")
+        
         return findings
+
+    def scan(self, urls: List[str]) -> List[Dict[str, Any]]:
+        """Main scan method"""
+        all_findings = []
         
-    def test_dom_xss(self, url: str) -> List[Dict[str, Any]]:
-        """Test for DOM-based XSS"""
-        findings = []
+        print(f"[XSSModule] Testing {len(urls)} URLs for reflected XSS...")
         
-        try:
-            response = requests.get(url, timeout=10)
-            html = response.text.lower()
+        for url in urls:
+            parsed = urlparse(url)
+            params = parse_qs(parsed.query)
             
-            # Look for dangerous JavaScript patterns
-            dangerous_patterns = [
-                'document.write(',
-                'innerhtml',
-                'outerhtml',
-                'eval(',
-                'settimeout(',
-                'setinterval(',
-            ]
+            if not params:
+                # If no query params, try common ones
+                for common_param in ["tfSearch", "search", "q", "id", "comment"]:
+                    findings = self.test_reflected_xss(url, common_param)
+                    all_findings.extend(findings)
+            else:
+                for param in params.keys():
+                    findings = self.test_reflected_xss(url, param)
+                    all_findings.extend(findings)
             
-            for pattern in dangerous_patterns:
-                if pattern in html and 'location' in html:
-                    findings.append({
+            # Light DOM check
+            try:
+                resp = self.http.get(url, timeout=6)
+                if any(p in resp.text.lower() for p in ["innerhtml", "document.write", "eval("]):
+                    all_findings.append({
                         "name": "Potential DOM-based XSS",
                         "severity": "medium",
                         "owasp_category": "A03:2021",
                         "url": url,
-                        "confidence": 60,
-                        "technique": "DOM-based",
-                        "evidence": {
-                            "pattern": pattern,
-                            "description": "Dangerous JavaScript pattern found"
-                        },
-                        "poc": "Manual testing required",
-                        "remediation": "Avoid using dangerous JavaScript functions with user input"
+                        "confidence": 50,
+                        "technique": "DOM XSS Pattern"
                     })
-                    break
-                    
-        except Exception as e:
-            print(f"Error testing DOM XSS: {str(e)}")
-            
-        return findings
-        
-    def scan(self, urls: List[str]) -> List[Dict[str, Any]]:
-        """Scan for XSS vulnerabilities"""
-        all_findings = []
-        
-        for url in urls:
-            # Test reflected XSS
-            parsed = urlparse(url)
-            params = parse_qs(parsed.query)
-            
-            for param in params.keys():
-                findings = self.test_reflected_xss(url, param)
-                all_findings.extend(findings)
+            except:
+                pass
                 
-            # Test DOM XSS
-            dom_findings = self.test_dom_xss(url)
-            all_findings.extend(dom_findings)
-                
+        print(f"[XSSModule] Scan complete. Found {len(all_findings)} XSS findings.")
         return all_findings

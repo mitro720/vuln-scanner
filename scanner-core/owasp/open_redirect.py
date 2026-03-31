@@ -29,10 +29,15 @@ import re
 
 
 class OpenRedirectModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
-        self.session = requests.Session()
-        self.session.headers.update({'User-Agent': 'SecureScan/1.0'})
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            self.http = requests.Session()
+            self.http.headers.update({'User-Agent': 'SecureScan/1.0'})
 
     def test_url(self, url: str) -> List[Dict[str, Any]]:
         findings = []
@@ -48,7 +53,7 @@ class OpenRedirectModule:
                 test_params = {**{k: v[0] for k, v in params.items()}, param: payload}
                 test_url = urlunparse(parsed._replace(query=urlencode(test_params)))
                 try:
-                    resp = self.session.get(test_url, timeout=8, allow_redirects=False)
+                    resp = self.http.get(test_url, timeout=8, allow_redirects=False)
                     # Check if the redirect Location header points to our evil domain
                     location = resp.headers.get('Location', '')
                     if resp.status_code in (301, 302, 303, 307, 308) and 'evil.com' in location:

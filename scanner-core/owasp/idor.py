@@ -10,10 +10,15 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 
 class IDORModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
-        self.session = requests.Session()
-        self.session.headers.update({'User-Agent': 'SecureScan/1.0'})
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            self.http = requests.Session()
+            self.http.headers.update({'User-Agent': 'SecureScan/1.0'})
 
     def _fuzz_id(self, original_id: str) -> List[str]:
         """Generate adjacent IDs for IDOR testing"""
@@ -40,7 +45,7 @@ class IDORModule:
             return findings
 
         try:
-            baseline = self.session.get(url, timeout=8, allow_redirects=True)
+            baseline = self.http.get(url, timeout=8, allow_redirects=True)
             baseline_status = baseline.status_code
             baseline_len = len(baseline.text)
         except Exception:
@@ -52,7 +57,7 @@ class IDORModule:
                 test_params = {**{k: v[0] for k, v in params.items()}, param: fuzz_id}
                 test_url = urlunparse(parsed._replace(query=urlencode(test_params)))
                 try:
-                    resp = self.session.get(test_url, timeout=8, allow_redirects=True)
+                    resp = self.http.get(test_url, timeout=8, allow_redirects=True)
                     # IDOR signal: same 200 status but different content from baseline
                     if resp.status_code == 200 and baseline_status == 200:
                         diff = abs(len(resp.text) - baseline_len)
@@ -92,7 +97,7 @@ class IDORModule:
             return findings
 
         try:
-            baseline = self.session.get(url, timeout=8)
+            baseline = self.http.get(url, timeout=8)
             baseline_status = baseline.status_code
             baseline_len = len(baseline.text)
         except Exception:
@@ -106,7 +111,7 @@ class IDORModule:
                 new_path = '/'.join(new_parts)
                 test_url = urlunparse(parsed._replace(path=new_path))
                 try:
-                    resp = self.session.get(test_url, timeout=8)
+                    resp = self.http.get(test_url, timeout=8)
                     if resp.status_code == 200 and baseline_status == 200:
                         diff = abs(len(resp.text) - baseline_len)
                         if diff > 150:

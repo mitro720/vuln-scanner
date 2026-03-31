@@ -23,19 +23,29 @@ class AuthHandler:
         self.cookies = cookies
         self.session.cookies.update(cookies)
         
-    def login(self, login_url: str, credentials: Dict[str, str], token_key: str = None) -> bool:
+    def login(self, login_url: str, username: str, password: str, user_field: str = "username", pass_field: str = "password", token_key: str = None) -> bool:
         """
         Attempt to login and capture session
         
         Args:
             login_url: URL to POST credentials to
-            credentials: Dict of username/password (e.g., {'email': '...', 'password': '...'})
+            username: The username/email value
+            password: The password value
+            user_field: The form field name for username (e.g., 'email', 'login')
+            pass_field: The form field name for password (e.g., 'password', 'pwd')
             token_key: Optional JSON key to extract token from response (e.g., 'access_token')
         """
         try:
+            # Construct the payload dynamically
+            credentials = {
+                user_field: username,
+                pass_field: password
+            }
+            
+            # Use JSON by default, fallback to form-encoding if needed (future improvement)
             response = self.session.post(login_url, json=credentials, timeout=10)
             
-            if response.status_code == 200:
+            if response.status_code == 200 or response.status_code == 302:
                 # 1. Check for token in response body
                 if token_key:
                     try:
@@ -47,8 +57,9 @@ class AuthHandler:
                     except:
                         pass
                         
-                # 2. Check for Cookies (handled automatically by session, but good to verify)
-                if self.session.cookies:
+                # 2. Check for Cookies (handled automatically by session, or captured manually)
+                if self.session.cookies or response.cookies:
+                    self.cookies = self.session.cookies.get_dict()
                     return True
                     
             return False

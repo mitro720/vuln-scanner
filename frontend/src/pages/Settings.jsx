@@ -19,7 +19,7 @@ const Settings = () => {
             <div className="grid grid-cols-4 gap-6">
                 {/* Sidebar */}
                 <div className="col-span-1">
-                    <div className="bg-white rounded-xl shadow-lg p-4">
+                    <div className="bg-gray-900 rounded-xl shadow-lg p-4">
                         <nav className="space-y-2">
                             {tabs.map((tab) => {
                                 const Icon = tab.icon
@@ -29,7 +29,7 @@ const Settings = () => {
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeTab === tab.id
                                                 ? 'gradient-bg text-white shadow-lg'
-                                                : 'text-gray-600 hover:bg-gray-100'
+                                                : 'text-gray-300 hover:bg-gray-800'
                                             }`}
                                     >
                                         <Icon size={18} />
@@ -44,14 +44,14 @@ const Settings = () => {
                 {/* Content */}
                 <div className="col-span-3">
                     {activeTab === 'general' && (
-                        <div className="bg-white rounded-xl shadow-lg p-8">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6">General Settings</h2>
+                        <div className="bg-gray-900 rounded-xl shadow-lg p-8">
+                            <h2 className="text-2xl font-bold text-white mb-6">General Settings</h2>
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Default Scan Type
                                     </label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                    <select className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                                         <option value="quick">Quick Scan</option>
                                         <option value="full">Full Scan</option>
                                         <option value="custom">Custom</option>
@@ -64,7 +64,7 @@ const Settings = () => {
                                     <input
                                         type="number"
                                         defaultValue={3}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                     />
                                 </div>
                             </div>
@@ -74,8 +74,8 @@ const Settings = () => {
                     {activeTab === 'ai' && <AISettings />}
 
                     {activeTab === 'notifications' && (
-                        <div className="bg-white rounded-xl shadow-lg p-8">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6">Notification Settings</h2>
+                        <div className="bg-gray-900 rounded-xl shadow-lg p-8">
+                            <h2 className="text-2xl font-bold text-white mb-6">Notification Settings</h2>
                             <div className="space-y-4">
                                 <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                     <span className="text-gray-700">Email on scan completion</span>
@@ -94,8 +94,8 @@ const Settings = () => {
                     )}
 
                     {activeTab === 'security' && (
-                        <div className="bg-white rounded-xl shadow-lg p-8">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6">Security Settings</h2>
+                        <div className="bg-gray-900 rounded-xl shadow-lg p-8">
+                            <h2 className="text-2xl font-bold text-white mb-6">Security Settings</h2>
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -104,7 +104,7 @@ const Settings = () => {
                                     <input
                                         type="password"
                                         placeholder="••••••••••••••••"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        className="w-full px-4 py-2 border border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                     />
                                 </div>
                                 <div>

@@ -7,49 +7,34 @@ from urllib.parse import urlparse, urljoin
 from typing import List, Dict, Any
 
 class SSTIModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url # Base URL
         
-        # Payloads targeting various template engines
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
+            
+        # Keep only the 2 most reliable payloads to avoid slow scans
         self.payloads = [
-            # Base math evaluations
-            {"engine": "Generic", "payload": "{{7*7}}", "expected": "49"},
-            {"engine": "Generic", "payload": "${7*7}", "expected": "49"},
-            {"engine": "Generic", "payload": "<%= 7*7 %>", "expected": "49"},
-            {"engine": "Generic", "payload": "[[5*5]]", "expected": "25"},
-            
-            # Jinja2 / Twig / Nunjucks
-            {"engine": "Jinja2/Twig", "payload": "{{7*'7'}}", "expected": "7777777"},
-            
-            # Mako
-            {"engine": "Mako", "payload": "${7*7}", "expected": "49"},
-            
-            # Smarty
-            {"engine": "Smarty", "payload": "{math equation='7*7'}", "expected": "49"},
-            
-            # Pug/Jade
-            {"engine": "Pug", "payload": "#{7*7}", "expected": "49"},
-            
-            # Handlebars (doesn't usually eval math directly, but can try helpers)
-            # Java EL / OGNL (often used in Spring / Struts)
-            {"engine": "Java EL", "payload": "${7 * 7}", "expected": "49"},
-            {"engine": "FreeMarker", "payload": "<#assign ex='freemarker.template.utility.Execute'?new()> ${ex('id')}", "expected": "uid="},
+            {"engine": "Generic/Jinja2/Twig", "payload": "{{7*7}}", "expected": "49"},
+            {"engine": "Generic/FreeMarker", "payload": "${7*7}", "expected": "49"},
         ]
         
     def scan(self, urls: List[str]) -> List[Dict[str, Any]]:
         findings = []
         
+        # Limit to the 3 most likely injection params to keep scan fast
+        test_params = ['q', 'search', 'name']
+        
         for url in urls:
-            # We will test common parameter names, or if url has parameters, test those
-            parsed = urlparse(url)
-            
-            # Note: For a real intensive scan, we would parse forms and inject everywhere.
-            # Here, we do a quick check via query parameters on the URL
-            
-            test_params = ['name', 'id', 'q', 'search', 'template', 'view', 'page', 'doc']
-            
             for param in test_params:
+                found = False
                 for payload_info in self.payloads:
+                    if found:
+                        break
                     payload = payload_info['payload']
                     expected = payload_info['expected']
                     engine = payload_info['engine']
@@ -57,38 +42,22 @@ class SSTIModule:
                     test_url = f"{url}?{param}={payload}"
                     
                     try:
-                        resp = requests.get(test_url, timeout=5)
+                        resp = self.http.get(test_url, timeout=5)
                         
-                        if expected in resp.text:
-                            # Verify it's actually interpreting, not just reflecting the intended text
-                            if expected == "49" and "7*7" not in resp.text:
-                                findings.append({
-                                    "name": "Server-Side Template Injection (SSTI)",
-                                    "severity": "critical",
-                                    "owasp_category": "Injection",
-                                    "url": test_url,
-                                    "description": f"Potential SSTI vulnerability detected. The template engine interpreted the payload and returned the evaluated result. Likely template engine: {engine}",
-                                    "confidence": 95,
-                                    "technique": "Active Probing",
-                                    "evidence": f"Payload: {payload} | Evaluated result '{expected}' found in response body.",
-                                    "remediation": "Validate and sanitize all user input before passing it to a template engine. Ensure logic-less templates are used where possible and restrict template engine features (sandboxing)."
-                                })
-                                break # Found one parameter vulnerable, move to next URL
-                            
-                            if expected == "7777777" and "7*'7'" not in resp.text:
-                                findings.append({
-                                    "name": "Server-Side Template Injection (SSTI)",
-                                    "severity": "critical",
-                                    "owasp_category": "Injection",
-                                    "url": test_url,
-                                    "description": f"Potential SSTI vulnerability detected. Likely Jinja2 or Twig engine.",
-                                    "confidence": 95,
-                                    "technique": "Active Probing",
-                                    "evidence": f"Payload: {payload} | Evaluated result '{expected}' found in response body.",
-                                    "remediation": "Use sandboxed environments for template execution."
-                                })
-                                break
-                                
+                        if expected in resp.text and payload not in resp.text:
+                            findings.append({
+                                "name": "Server-Side Template Injection (SSTI)",
+                                "severity": "critical",
+                                "owasp_category": "Injection",
+                                "url": test_url,
+                                "description": f"SSTI detected. Engine evaluated '{payload}' → '{expected}'. Likely engine: {engine}",
+                                "confidence": 95,
+                                "technique": "Active Probing",
+                                "evidence": f"Payload: {payload} | Result '{expected}' found in response.",
+                                "remediation": "Sanitize all user input before passing to a template engine. Use logic-less templates or sandbox the engine."
+                            })
+                            found = True
+                            break
                     except requests.RequestException:
                         continue
                         

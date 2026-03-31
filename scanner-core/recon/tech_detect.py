@@ -7,9 +7,16 @@ from typing import Dict, List, Any
 
 
 class TechDetector:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
         self.technologies = []
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
     def detect_from_headers(self, headers: Dict[str, str]) -> List[str]:
         """Detect technologies from HTTP headers"""
@@ -70,7 +77,7 @@ class TechDetector:
     def detect(self) -> Dict[str, Any]:
         """Run technology detection"""
         try:
-            response = requests.get(self.target_url, timeout=10)
+            response = self.http.get(self.target_url, timeout=10)
             
             # Detect from headers
             header_tech = self.detect_from_headers(response.headers)

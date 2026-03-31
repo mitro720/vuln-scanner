@@ -11,8 +11,15 @@ from urllib.parse import urlparse
 
 
 class CryptoModule:
-    def __init__(self, target_url: str):
+    def __init__(self, target_url: str, http_client: Any = None):
         self.target_url = target_url
+        
+        # Inject custom HttpClient if provided
+        if http_client:
+            self.http = http_client
+        else:
+            import requests as r
+            self.http = r
         
     def check_https(self) -> List[Dict[str, Any]]:
         """Check if HTTPS is enforced"""
@@ -100,7 +107,7 @@ class CryptoModule:
         
         try:
             for url in urls[:10]:  # Limit to first 10 URLs
-                response = requests.get(url, timeout=10)
+                response = self.http.get(url, timeout=10)
                 content = response.text.lower()
                 
                 for pattern, description in sensitive_patterns:

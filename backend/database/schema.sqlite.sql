@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS scans (
   completed_at DATETIME,
   config TEXT DEFAULT '{}',
   metadata TEXT DEFAULT '{}',
+  findings_count INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
