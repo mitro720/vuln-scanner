@@ -266,7 +266,7 @@ class ScanEngine:
         self.scanner_log(f"ENGINE WARNING: {message}", level="WARNING")
         data = {
             "message": message,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         print(f"WARNING:{json.dumps(data)}", flush=True)
 
