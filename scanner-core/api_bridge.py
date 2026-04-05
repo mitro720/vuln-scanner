@@ -4,6 +4,13 @@ API Bridge - Connects Python scanner to Node.js backend
 
 import sys
 import os
+
+# --- Ensure Local Binaries are loaded in PATH ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+bin_dir = os.path.join(current_dir, "bin")
+if bin_dir not in os.environ.get('PATH', ''):
+    os.environ['PATH'] = f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+
 import json
 import subprocess
 import requests
@@ -12,14 +19,28 @@ from flask_cors import CORS
 import threading
 import signal
 import time
+from datetime import datetime
 
 # ── Force UTF-8 I/O on Windows (cp1252 can't handle emoji in print statements) ──
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-
 app = Flask(__name__)
+
+# Shared log file for the Auditor container
+SCANNER_LOG_FILE = os.environ.get('SCANNER_LOG_FILE', os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "scanner-core.log"))
+
+def scanner_log(message: str, level="INFO"):
+    """Write a line to the shared log file so the Auditor can pick it up."""
+    try:
+        os.makedirs(os.path.dirname(SCANNER_LOG_FILE), exist_ok=True)
+        with open(SCANNER_LOG_FILE, 'a', encoding='utf-8') as f:
+            timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+            f.write(f"{level}: [{timestamp}] {message}\n")
+            f.flush()
+    except Exception:
+        pass
 
 # Enhanced CORS configuration
 CORS(app, resources={r"/*": {
@@ -33,7 +54,7 @@ CORS(app, resources={r"/*": {
 active_scans = {}
 
 # Backend API Configuration
-BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:5001')
+BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:5000')
 print(f"📡 Backend Reporting URL: {BACKEND_URL}")
 
 SCANNER_HEADERS = {'x-scanner-api-key': os.environ.get('SCANNER_API_KEY', 'secure-scanner-key')}
@@ -63,7 +84,8 @@ def run_scan(scan_id, target_url, config, phase="all", user_id=None):
             'core/engine.py',
             target_url,
             json.dumps(config),
-            phase
+            phase,
+            str(scan_id)
         ]
         
         print(f"🔧 Running {phase} scanner from directory: {scanner_core_dir}")
@@ -81,6 +103,7 @@ def run_scan(scan_id, target_url, config, phase="all", user_id=None):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding='utf-8', # 👈 Force UTF-8 for Windows compatibility (prevents charmap crashes)
             bufsize=1,
             cwd=scanner_core_dir,
             **kwargs
@@ -217,26 +240,40 @@ def run_scan(scan_id, target_url, config, phase="all", user_id=None):
 
             elif line.startswith('WARNING:'):
                 active_scans[scan_id]['logs'].append(f"WARNING: {line[8:]}")
+                scanner_log(f"WARNING: {line[8:]}")
                 sync_logs()
                 
             elif line.startswith('ERROR:'):
                 error_content = line[6:].strip()
                 active_scans[scan_id]['logs'].append(f"ERROR: {error_content}")
+                scanner_log(f"ERROR: {error_content}")
                 
-                # Try to parse as JSON to see if it's a structured engine error
-                # Regular Python logging (e.g., ERROR:root:HTTP Request failed) shouldn't fail the entire scan
+                # Check if it's a fatal engine error.
+                # Non-fatal structured errors (warnings) shouldn't kill the scan.
                 is_fatal = False
                 try:
-                    json.loads(error_content)
-                    is_fatal = True  # It's a structured error from emit_error()
+                    data = json.loads(error_content)
+                    # If it's a structured error from emit_error(), check the fatal flag.
+                    # If no flag is present, assume non-fatal unless it's a critical system error.
+                    is_fatal = data.get('fatal', False)
+                    
+                    # For legacy compatibility, certain errors are always fatal
+                    if "Pre-scan check failed" in data.get('error', ''):
+                        is_fatal = True
                 except ValueError:
+                    # Regular Python stderr/logs starting with ERROR:
                     if "CRITICAL:" in line or "FATAL:" in line:
                         is_fatal = True
                         
                 if is_fatal:
+                    print(f"🛑 FATAL ENGINE ERROR: {error_content}")
                     active_scans[scan_id]['status'] = 'failed'
-                    requests.put(f'{BACKEND_URL}/api/scans/{scan_id}', headers=SCANNER_HEADERS, json={'status': 'failed'})
+                    requests.put(f'{BACKEND_URL}/api/scans/{scan_id}', headers=SCANNER_HEADERS, json={
+                        'status': 'failed',
+                        'metadata': {'error': error_content, 'logs': active_scans[scan_id]['logs'][-50:]}
+                    })
                 else:
+                    # It's just a module error or warning, keep going!
                     sync_logs()
                 
             elif line.startswith('RESULT:'):
@@ -247,6 +284,9 @@ def run_scan(scan_id, target_url, config, phase="all", user_id=None):
                     # Include logs in final metadata
                     meta['logs'] = active_scans[scan_id]['logs']
                     summary = active_scans[scan_id].get('findings_summary', {})
+                    
+                    # Prevent the cleanup block from thinking it failed
+                    active_scans[scan_id]['status'] = 'completed'
                     
                     requests.put(
                         f'{BACKEND_URL}/api/scans/{scan_id}',
@@ -270,6 +310,11 @@ def run_scan(scan_id, target_url, config, phase="all", user_id=None):
                 if clean_log:
                     timestamp = time.strftime("%H:%M:%S")
                     active_scans[scan_id]['logs'].append(f"[{timestamp}] {clean_log}")
+                    
+                    # ALSO send to auditor if it looks like a problem
+                    if "WARNING" in clean_log.upper() or "ERROR" in clean_log.upper() or "FAILED" in clean_log.upper():
+                        scanner_log(clean_log)
+
                     sync_logs()
                 
         process.wait()
@@ -278,6 +323,44 @@ def run_scan(scan_id, target_url, config, phase="all", user_id=None):
         print(f"Error running scan: {str(e)}")
         if scan_id in active_scans:
             active_scans[scan_id]['status'] = 'failed'
+            # Force failed status in backend
+            try:
+                requests.put(
+                    f'{BACKEND_URL}/api/scans/{scan_id}',
+                    headers=SCANNER_HEADERS,
+                    json={
+                        'status': 'failed',
+                        'metadata': {
+                            'error': str(e),
+                            'logs': active_scans[scan_id].get('logs', [])
+                        }
+                    },
+                    timeout=5
+                )
+            except: pass
+
+    # After loop finishes (process wait)
+    if scan_id in active_scans and active_scans[scan_id]['status'] == 'running':
+        last_logs = "\n".join(active_scans[scan_id]['logs'][-5:])
+        print(f"⚠️ Scan {scan_id} process ended unexpectedly without RESULT.")
+        print(f"   Last logs:\n{last_logs}")
+        
+        active_scans[scan_id]['status'] = 'failed'
+        try:
+            requests.put(
+                f'{BACKEND_URL}/api/scans/{scan_id}',
+                headers=SCANNER_HEADERS,
+                json={
+                    'status': 'failed',
+                    'metadata': {
+                        'error': 'Scanner process terminated unexpectedly',
+                        'last_logs': last_logs,
+                        'logs': active_scans[scan_id].get('logs', [])
+                    }
+                },
+                timeout=5
+            )
+        except: pass
 
 
 @app.route('/health', methods=['GET'])
