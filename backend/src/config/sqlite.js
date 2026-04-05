@@ -7,7 +7,10 @@ class MemoryDB {
     constructor() {
         this.data = {
             targets: [],
-            scans: [],
+            scans: [
+                { id: 'crawl-fix-v-final', status: 'ready', metadata: {}, created_at: new Date().toISOString() },
+                { id: 'demo-scan', status: 'ready', metadata: {}, created_at: new Date().toISOString() }
+            ],
             findings: [],
             reports: []
         }
